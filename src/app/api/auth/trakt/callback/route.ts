@@ -24,10 +24,7 @@ export async function GET(req: NextRequest) {
 			method: "POST"
 		});
 		const tokens = await tokenResponse.json();
-
-		console.log(tokens);
-
-		const response = NextResponse.redirect(new URL("/dashboard", req.url));
+		const response = NextResponse.redirect(new URL("/epg", req.url));
 
 		response.cookies.set("trakt_access_token", tokens.access_token, {
 			httpOnly: true,
