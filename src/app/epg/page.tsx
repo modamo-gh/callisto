@@ -12,14 +12,27 @@ const EPG = async () => {
 	}
 
 	let trendingMovies;
+	let popularMovies;
+	let boxOffice;
+	let mostPlayedMovies;
 
 	try {
 		trendingMovies = await traktRequest("/movies/trending");
+		popularMovies = await traktRequest("/movies/popular");
+		boxOffice = await traktRequest("/movies/boxoffice");
+		mostPlayedMovies = await traktRequest("/movies/played/weekly");
 	} catch (error) {
 		console.error("Error fetching Trakt data:", error);
 	}
 
-	return <EPGClient initialData={trendingMovies}/>
+	const initialData = [
+		boxOffice,
+		mostPlayedMovies,
+		popularMovies,
+		trendingMovies
+	];
+
+	return <EPGClient initialData={initialData} />;
 };
 
 export default EPG;

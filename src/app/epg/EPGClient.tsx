@@ -8,12 +8,10 @@ interface EPGClientProps {
 
 const EPGClient = ({ initialData }: EPGClientProps) => {
 	const [currentChannel, setCurrentChannel] = useState(0);
-	const [trendingMovies] = useState(initialData);
-
-	const channels = ["A", "B", "C", "D"];
+	const [channels] = useState(initialData);
 
 	useEffect(() => {
-		const handleKeyDown = (event) => {
+		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "ArrowUp") {
 				event.preventDefault();
 				setCurrentChannel((prev) =>
@@ -47,12 +45,16 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 					],
 					channels[currentChannel],
 					channels[(currentChannel + 1) % channels.length]
-				].map((channel, index) => (
+				].map((channel, channelIndex) => (
 					<div
-						className="bg-slate-700 flex-1 rounded w-full"
-						key={index}
+						className="bg-slate-700 flex flex-1 rounded w-full"
+						key={channelIndex}
 					>
-						{channel}
+						{channel.map((content, contentIndex: number) => (
+							<div key={contentIndex}>
+								{JSON.stringify(content)}
+							</div>
+						))}
 					</div>
 				))}
 			</div>
