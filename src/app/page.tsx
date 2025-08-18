@@ -8,12 +8,19 @@ const orbitron = Orbitron({
 const Home = () => {
 	return (
 		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center w-screen">
+			<div className="absolute inset-0 pointer-events-none">
+				<div className="scan-line absolute w-full h-1 bg-cyan-400/30 blur-sm"></div>
+			</div>
 			<h1
-				className={`${orbitron.className} text-cyan-500 text-9xl tracking-widest`}
+				className={`${orbitron.className} text-center text-cyan-500 text-9xl tracking-widest`}
 			>
 				neocable
 			</h1>
-			<h2 className={`${orbitron.className} text-cyan-500 text-4xl tracking-widest`}>Combining the comfort of cable with the convenience of streaming</h2>
+			<h2
+				className={`${orbitron.className} text-center text-cyan-500 text-4xl tracking-widest`}
+			>
+				Combining the comfort of cable with the convenience of streaming
+			</h2>
 		</div>
 	);
 };
