@@ -77,11 +77,54 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		};
 	}, [channels.length]);
 
+	const calculateTimeMarkers = () => {
+		const now = new Date();
+		const timeMarkers = [
+			now.toLocaleTimeString([], {
+				hour: "2-digit",
+				hour12: true,
+				minute: "2-digit"
+			})
+		];
+		const currentMinutes = now.getMinutes();
+		const minutesToNext30 =
+			(currentMinutes < 30 ? 30 : 60) - currentMinutes;
+
+		for (let i = 0; i < 3; i++) {
+			const time = new Date(
+				now.getTime() + (minutesToNext30 + i * 30) * 60000
+			);
+
+			timeMarkers.push(
+				time.toLocaleTimeString([], {
+					hour: "2-digit",
+					hour12: true,
+					minute: "2-digit"
+				})
+			);
+		}
+
+		return timeMarkers;
+	};
+
+	const [timeMarkers] = useState(calculateTimeMarkers());
+
 	return (
 		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center w-screen">
 			<div className="flex flex-1 gap-2 w-full">
 				<div className="bg-red-500 flex-1 rounded"></div>
 				<div className="bg-blue-500 flex-1 rounded"></div>
+			</div>
+			<div className="flex gap-2 justify-around w-full">
+				<div className="flex-1" />
+				{timeMarkers.map((marker, index) => (
+					<div
+						className="flex-1"
+						key={index}
+					>
+						{marker}
+					</div>
+				))}
 			</div>
 			<div className="flex flex-col flex-1 gap-2 px-2 pb-2 w-full">
 				{[
