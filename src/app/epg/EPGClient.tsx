@@ -4,6 +4,8 @@ import { Poppins } from "next/font/google";
 import { useEffect, useState } from "react";
 import ChannelGuide from "./components/ChannelGuide";
 import { EPGProvider } from "./context/EPGContext";
+import InfoPane from "./components/InfoPane";
+import VideoPane from "./components/VideoPane";
 
 interface EPGClientProps {
 	initialData: any;
@@ -173,29 +175,8 @@ const EPGContent = ({ initialData }: EPGClientProps) => {
 			className={`bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center p-2 ${poppins.className} w-screen`}
 		>
 			<div className="flex flex-1 gap-2 w-full">
-				<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
-					<h1 className="text-4xl font-bold">
-						{movieDetails?.title}
-					</h1>
-					<div className="flex flex-wrap gap-2 uppercase text-slate-300">
-						{movieDetails?.genres.map((genre, index: number) => (
-							<div
-								className="bg-slate-600 px-3 py-1 rounded-full tracking-wider"
-								key={index}
-							>
-								{genre.name}
-							</div>
-						))}
-					</div>
-					<p className="text-slate-200 leading-relaxed max-h-[150px]">
-						{movieDetails?.overview}
-					</p>
-					<div className="flex gap-6 mt-auto text-slate-400">
-						<p>⏱ {movieDetails?.runtime} mins</p>
-						<p>📅 {movieDetails?.release_date}</p>
-					</div>
-				</div>
-				<div className="bg-blue-500 flex-1 rounded"></div>
+				<InfoPane />
+				<VideoPane />
 			</div>
 			<div className="flex gap-2 justify-around w-full">
 				<div className="flex-1" />
