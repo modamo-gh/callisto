@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Poppins } from "next/font/google";
+import { useEffect, useState } from "react";
+import ChannelGuide from "./components/ChannelGuide";
 
 interface EPGClientProps {
 	initialData: any;
@@ -11,56 +12,9 @@ const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const EPGClient = ({ initialData }: EPGClientProps) => {
 	const [channels] = useState(initialData);
-	const [containerWidth, setContainerWidth] = useState(0);
 	const [currentChannel, setCurrentChannel] = useState(0);
-	const [movieRuntimes, setMovieRuntimes] = useState<{
-		[key: number]: number;
-	}>({});
-
-	const contentContainerRef = useRef<HTMLDivElement>(null);
-
-	useLayoutEffect(() => {
-		const measureWidth = () => {
-			if (contentContainerRef.current) {
-				setContainerWidth(contentContainerRef.current.offsetWidth);
-			}
-		};
-
-		measureWidth();
-
-		window.addEventListener("resize", measureWidth);
-
-		return () => window.removeEventListener("resize", measureWidth);
-	}, []);
 
 	const [movieDetails, setMovieDetails] = useState();
-
-	const fetchRuntime = async (tmdbID: number): Promise<number | null> => {
-		if (movieRuntimes[tmdbID]) {
-			return movieRuntimes[tmdbID];
-		}
-
-		try {
-			const response = await fetch(
-				`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to fetch");
-			}
-
-			const data = await response.json();
-			const runtime = data.runtime || 0;
-
-			setMovieRuntimes((prev) => ({ ...prev, [tmdbID]: runtime }));
-
-			return runtime;
-		} catch (error) {
-			console.error("Error fetching runtime:", error);
-
-			return null;
-		}
-	};
 
 	const [timeMarkers, setTimeMarkers] = useState<
 		{ date: Date; time: string }[]
@@ -180,29 +134,25 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 	}, [channels.length, timeBracketIndex]);
 
 	useEffect(() => {
-		const fetchMovieDetails = async (tmdbID: number) => {
-			try {
-				const response = await fetch(
-					`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-				);
-
-				if (!response.ok) {
-					throw new Error("Failed to fetch");
-				}
-
-				const data = await response.json();
-
-				setMovieDetails(data);
-			} catch (error) {
-				console.error("Error fetching movie details:", error);
-			}
-		};
-
-		fetchMovieDetails(
-			channels[currentChannel].channelName === "Most Popular Movies"
-				? channels[currentChannel].data[0].ids.tmdb
-				: channels[currentChannel].data[0].movie.ids.tmdb
-		);
+		// const fetchMovieDetails = async (tmdbID: number) => {
+		// 	try {
+		// 		const response = await fetch(
+		// 			`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+		// 		);
+		// 		if (!response.ok) {
+		// 			throw new Error("Failed to fetch");
+		// 		}
+		// 		const data = await response.json();
+		// 		setMovieDetails(data);
+		// 	} catch (error) {
+		// 		console.error("Error fetching movie details:", error);
+		// 	}
+		// };
+		// fetchMovieDetails(
+		// 	channels[currentChannel].channelName === "Most Popular Movies"
+		// 		? channels[currentChannel].data[0].ids.tmdb
+		// 		: channels[currentChannel].data[0].movie.ids.tmdb
+		// );
 	}, [channels, currentChannel]);
 
 	return (
@@ -211,7 +161,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		>
 			<div className="flex flex-1 gap-2 w-full">
 				<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
-					<h1 className="text-4xl font-bold">
+					{/* <h1 className="text-4xl font-bold">
 						{movieDetails?.title}
 					</h1>
 					<div className="flex flex-wrap gap-2 uppercase text-slate-300">
@@ -228,9 +178,9 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 						{movieDetails?.overview}
 					</p>
 					<div className="flex gap-6 mt-auto text-slate-400">
-						<span>⏱ {movieDetails?.runtime} mins</span>
-						<span>📅 {movieDetails?.release_date}</span>
-					</div>
+						<p>⏱ {movieDetails?.runtime} mins</p>
+						<p>📅 {movieDetails?.release_date}</p>
+					</div> */}
 				</div>
 				<div className="bg-blue-500 flex-1 rounded"></div>
 			</div>
@@ -247,69 +197,10 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 						</div>
 					))}
 			</div>
-			<div className="flex flex-col flex-1 gap-2 w-full">
-				{[
-					channels[
-						currentChannel - 1 < 0
-							? channels.length - 1
-							: currentChannel - 1
-					],
-					channels[currentChannel],
-					channels[(currentChannel + 1) % channels.length]
-				].map((channel, channelIndex) => (
-					<div
-						className="flex flex-1 gap-2 rounded w-full"
-						key={channelIndex}
-					>
-						<div className="bg-slate-700 flex items-center justify-center rounded text-center w-1/5">
-							{channel.channelName}
-						</div>
-						<div
-							className="flex gap-2 no-scrollbar overflow-x-auto w-4/5"
-							ref={contentContainerRef}
-							style={{ scrollbarWidth: "none" }}
-						>
-							{channel.data.map(
-								(content, contentIndex: number) => {
-									const movie =
-										channel.channelName ===
-										"Most Popular Movies"
-											? content
-											: content.movie;
-									const runtime = movie.ids.tmdb
-										? movieRuntimes[movie.ids.tmdb]
-										: null;
-
-									if (
-										movie.ids.tmdb &&
-										runtime === undefined
-									) {
-										fetchRuntime(movie.ids.tmdb);
-									}
-
-									const contentPixelWidth = runtime
-										? (runtime / 120) * containerWidth
-										: containerWidth / 4;
-
-									return (
-										<div
-											className="bg-slate-700 flex flex-shrink-0 items-center p-2 rounded text-xl"
-											key={contentIndex}
-											style={{
-												width: `${contentPixelWidth}px`
-											}}
-										>
-											<p className="text-white truncate">
-												{movie.title}
-											</p>
-										</div>
-									);
-								}
-							)}
-						</div>
-					</div>
-				))}
-			</div>
+			<ChannelGuide
+				channels={channels}
+				currentChannel={currentChannel}
+			/>
 		</div>
 	);
 };
