@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Poppins } from "next/font/google";
 
 interface EPGClientProps {
 	initialData: any;
 }
+
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const EPGClient = ({ initialData }: EPGClientProps) => {
 	const [channels] = useState(initialData);
@@ -203,23 +206,32 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 	}, [channels, currentChannel]);
 
 	return (
-		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center p-2 w-screen">
+		<div
+			className={`bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center p-2 ${poppins.className} w-screen`}
+		>
 			<div className="flex flex-1 gap-2 w-full">
-				<div className="bg-slate-700 flex-1 rounded">
-					<p>
-						{channels[currentChannel].channelName ===
-						"Most Popular Movies"
-							? channels[currentChannel].data[0].title
-							: channels[currentChannel].data[0].movie.title}
+				<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
+					<h1 className="text-4xl font-bold">
+						{movieDetails?.title}
+					</h1>
+					<div className="flex flex-wrap gap-2 uppercase text-slate-300">
+						{movieDetails?.genres.map((genre, index: number) => (
+							<div
+								className="bg-slate-600 px-3 py-1 rounded-full tracking-wider"
+								key={index}
+							>
+								{genre.name}
+							</div>
+						))}
+					</div>
+					<p className="text-slate-200 leading-relaxed max-h-[150px]">
+						{movieDetails?.overview}
 					</p>
-					{movieDetails?.genres.map((genre, index: number) => (
-						<p key={index}>{genre.name}</p>
-					))}
-					<p>{movieDetails?.overview}</p>
-					<p>{movieDetails?.runtime}</p>
-					<p>{movieDetails?.release_date}</p>
+					<div className="flex gap-6 mt-auto text-slate-400">
+						<span>⏱ {movieDetails?.runtime} mins</span>
+						<span>📅 {movieDetails?.release_date}</span>
+					</div>
 				</div>
-
 				<div className="bg-blue-500 flex-1 rounded"></div>
 			</div>
 			<div className="flex gap-2 justify-around w-full">
