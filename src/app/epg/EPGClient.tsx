@@ -61,6 +61,8 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		{ date: Date; time: string }[]
 	>([]);
 
+	useEffect(() => {}, []);
+
 	useEffect(() => {
 		const calculateInitialTimeMarkers = () => {
 			const now = new Date();
@@ -97,6 +99,52 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		};
 
 		calculateInitialTimeMarkers();
+
+		const interval = setInterval(() => {
+			const now = new Date();
+
+			setTimeMarkers((prev) => {
+				if (
+					prev.length === 0 ||
+					now.getTime() < prev[0].date.getTime()
+				) {
+					return prev;
+				}
+
+				const markers = [...prev];
+
+				markers[0] = {
+					date: now,
+					time: now.toLocaleTimeString([], {
+						hour: "2-digit",
+						hour12: true,
+						minute: "2-digit"
+					})
+				};
+
+				if (now.getTime() >= markers[1].date.getTime()) {
+					markers.splice(1, 1);
+				}
+
+				if (markers.length < 4) {
+					const nextDate = new Date(
+						markers[markers.length - 1].date.getTime() + 30 * 60000
+					);
+					markers.push({
+						date: nextDate,
+						time: nextDate.toLocaleTimeString([], {
+							hour: "2-digit",
+							hour12: true,
+							minute: "2-digit"
+						})
+					});
+				}
+
+				return markers;
+			});
+		}, 60000);
+
+		return () => clearInterval(interval);
 	}, []);
 
 	const [timeBracketIndex, setTimeBracketIndex] = useState(0);
@@ -135,7 +183,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 							})
 						});
 
-                        return markers;
+						return markers;
 					});
 					setTimeBracketIndex((prev) => prev + 1);
 					break;
@@ -152,7 +200,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 	}, [channels.length, timeBracketIndex]);
 
 	return (
-		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center w-screen">
+		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center p-2 w-screen">
 			<div className="flex flex-1 gap-2 w-full">
 				<div className="bg-red-500 flex-1 rounded"></div>
 				<div className="bg-blue-500 flex-1 rounded"></div>
@@ -170,7 +218,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 						</div>
 					))}
 			</div>
-			<div className="flex flex-col flex-1 gap-2 px-2 pb-2 w-full">
+			<div className="flex flex-col flex-1 gap-2 w-full">
 				{[
 					channels[
 						currentChannel - 1 < 0
@@ -188,8 +236,9 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 							{channel.channelName}
 						</div>
 						<div
-							className="flex gap-2 overflow-x-auto w-4/5"
+							className="flex gap-2 no-scrollbar overflow-x-auto w-4/5"
 							ref={contentContainerRef}
+							style={{ scrollbarWidth: "none" }}
 						>
 							{channel.data.map(
 								(content, contentIndex: number) => {
