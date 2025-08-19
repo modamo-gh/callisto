@@ -57,16 +57,90 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		}
 	};
 
+	const [timeMarkers, setTimeMarkers] = useState<
+		{ date: Date; time: string }[]
+	>([]);
+
+	useEffect(() => {
+		const calculateInitialTimeMarkers = () => {
+			const now = new Date();
+			const timeMarkers = [
+				{
+					date: now,
+					time: now.toLocaleTimeString([], {
+						hour: "2-digit",
+						hour12: true,
+						minute: "2-digit"
+					})
+				}
+			];
+			const currentMinutes = now.getMinutes();
+			const minutesToNext30 =
+				(currentMinutes < 30 ? 30 : 60) - currentMinutes;
+
+			for (let i = 0; i < 3; i++) {
+				const time = new Date(
+					now.getTime() + (minutesToNext30 + i * 30) * 60000
+				);
+
+				timeMarkers.push({
+					date: time,
+					time: time.toLocaleTimeString([], {
+						hour: "2-digit",
+						hour12: true,
+						minute: "2-digit"
+					})
+				});
+			}
+
+			setTimeMarkers(timeMarkers);
+		};
+
+		calculateInitialTimeMarkers();
+	}, []);
+
+	const [timeBracketIndex, setTimeBracketIndex] = useState(0);
+
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "ArrowUp") {
-				event.preventDefault();
-				setCurrentChannel((prev) =>
-					prev - 1 < 0 ? channels.length - 1 : prev - 1
-				);
-			} else if (event.key === "ArrowDown") {
-				event.preventDefault();
-				setCurrentChannel((prev) => (prev + 1) % channels.length);
+			switch (event.key) {
+				case "ArrowUp":
+					event.preventDefault();
+					setCurrentChannel((prev) =>
+						prev - 1 < 0 ? channels.length - 1 : prev - 1
+					);
+					break;
+				case "ArrowDown":
+					event.preventDefault();
+					setCurrentChannel((prev) => (prev + 1) % channels.length);
+					break;
+				case "ArrowLeft":
+					setTimeBracketIndex((prev) =>
+						prev - 1 < 0 ? 0 : prev - 1
+					);
+					break;
+				case "ArrowRight":
+					setTimeMarkers((prev) => {
+						const markers = [...prev];
+						const nextDate = new Date(
+							markers[markers.length - 1].date.getTime() +
+								30 * 60000
+						);
+						markers.push({
+							date: nextDate,
+							time: nextDate.toLocaleTimeString([], {
+								hour: "2-digit",
+								hour12: true,
+								minute: "2-digit"
+							})
+						});
+
+                        return markers;
+					});
+					setTimeBracketIndex((prev) => prev + 1);
+					break;
+				default:
+					break;
 			}
 		};
 
@@ -75,39 +149,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [channels.length]);
-
-	const calculateTimeMarkers = () => {
-		const now = new Date();
-		const timeMarkers = [
-			now.toLocaleTimeString([], {
-				hour: "2-digit",
-				hour12: true,
-				minute: "2-digit"
-			})
-		];
-		const currentMinutes = now.getMinutes();
-		const minutesToNext30 =
-			(currentMinutes < 30 ? 30 : 60) - currentMinutes;
-
-		for (let i = 0; i < 3; i++) {
-			const time = new Date(
-				now.getTime() + (minutesToNext30 + i * 30) * 60000
-			);
-
-			timeMarkers.push(
-				time.toLocaleTimeString([], {
-					hour: "2-digit",
-					hour12: true,
-					minute: "2-digit"
-				})
-			);
-		}
-
-		return timeMarkers;
-	};
-
-	const [timeMarkers] = useState(calculateTimeMarkers());
+	}, [channels.length, timeBracketIndex]);
 
 	return (
 		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center w-screen">
@@ -117,14 +159,16 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 			</div>
 			<div className="flex gap-2 justify-around w-full">
 				<div className="flex-1" />
-				{timeMarkers.map((marker, index) => (
-					<div
-						className="flex-1"
-						key={index}
-					>
-						{marker}
-					</div>
-				))}
+				{timeMarkers
+					.slice(timeBracketIndex, timeBracketIndex + 4)
+					.map((marker, index) => (
+						<div
+							className="flex-1"
+							key={index}
+						>
+							{marker.time}
+						</div>
+					))}
 			</div>
 			<div className="flex flex-col flex-1 gap-2 px-2 pb-2 w-full">
 				{[
