@@ -30,6 +30,8 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		return () => window.removeEventListener("resize", measureWidth);
 	}, []);
 
+	const [movieDetails, setMovieDetails] = useState();
+
 	const fetchRuntime = async (tmdbID: number): Promise<number | null> => {
 		if (movieRuntimes[tmdbID]) {
 			return movieRuntimes[tmdbID];
@@ -174,10 +176,50 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		};
 	}, [channels.length, timeBracketIndex]);
 
+	useEffect(() => {
+		const fetchMovieDetails = async (tmdbID: number) => {
+			try {
+				const response = await fetch(
+					`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to fetch");
+				}
+
+				const data = await response.json();
+
+				setMovieDetails(data);
+			} catch (error) {
+				console.error("Error fetching movie details:", error);
+			}
+		};
+
+		fetchMovieDetails(
+			channels[currentChannel].channelName === "Most Popular Movies"
+				? channels[currentChannel].data[0].ids.tmdb
+				: channels[currentChannel].data[0].movie.ids.tmdb
+		);
+	}, [channels, currentChannel]);
+
 	return (
 		<div className="bg-slate-800 flex flex-col gap-2 h-screen items-center justify-center p-2 w-screen">
 			<div className="flex flex-1 gap-2 w-full">
-				<div className="bg-red-500 flex-1 rounded"></div>
+				<div className="bg-slate-700 flex-1 rounded">
+					<p>
+						{channels[currentChannel].channelName ===
+						"Most Popular Movies"
+							? channels[currentChannel].data[0].title
+							: channels[currentChannel].data[0].movie.title}
+					</p>
+					{movieDetails?.genres.map((genre, index: number) => (
+						<p key={index}>{genre.name}</p>
+					))}
+					<p>{movieDetails?.overview}</p>
+					<p>{movieDetails?.runtime}</p>
+					<p>{movieDetails?.release_date}</p>
+				</div>
+
 				<div className="bg-blue-500 flex-1 rounded"></div>
 			</div>
 			<div className="flex gap-2 justify-around w-full">
@@ -239,17 +281,14 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 
 									return (
 										<div
-											className="bg-slate-700 rounded p-2 flex-shrink-0"
+											className="bg-slate-700 flex flex-shrink-0 items-center p-2 rounded text-xl"
 											key={contentIndex}
 											style={{
 												width: `${contentPixelWidth}px`
 											}}
 										>
-											<p className="text-white text-xs truncate">
+											<p className="text-white truncate">
 												{movie.title}
-											</p>
-											<p className="text-gray-300 text-xs">
-												{runtime || "Loading..."}
 											</p>
 										</div>
 									);
