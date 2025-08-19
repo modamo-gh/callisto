@@ -26,10 +26,10 @@ const EPG = async () => {
 	}
 
 	const initialData = [
-		boxOffice,
-		mostPlayedMovies,
-		popularMovies,
-		trendingMovies
+		{ channelName: "Weekend Box Office", data: boxOffice },
+		{ channelName: "Week's Most Played Movies", data: mostPlayedMovies },
+		{ channelName: "Most Popular Movies", data: popularMovies },
+		{ channelName: "Trending Movies 24 HRs", data: trendingMovies }
 	];
 
 	return <EPGClient initialData={initialData} />;
