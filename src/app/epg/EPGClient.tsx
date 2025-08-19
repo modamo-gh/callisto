@@ -61,28 +61,27 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		{ date: Date; time: string }[]
 	>([]);
 
-	useEffect(() => {}, []);
-
 	useEffect(() => {
-		const calculateInitialTimeMarkers = () => {
-			const now = new Date();
+		const updateTimeMarkers = () => {
+			const roundedMS = Math.floor(Date.now() / 60000) * 60000;
+			const roundedNow = new Date(roundedMS);
 			const timeMarkers = [
 				{
-					date: now,
-					time: now.toLocaleTimeString([], {
+					date: roundedNow,
+					time: roundedNow.toLocaleTimeString([], {
 						hour: "2-digit",
 						hour12: true,
 						minute: "2-digit"
 					})
 				}
 			];
-			const currentMinutes = now.getMinutes();
+			const currentMinutes = roundedNow.getMinutes();
 			const minutesToNext30 =
 				(currentMinutes < 30 ? 30 : 60) - currentMinutes;
 
 			for (let i = 0; i < 3; i++) {
 				const time = new Date(
-					now.getTime() + (minutesToNext30 + i * 30) * 60000
+					roundedNow.getTime() + (minutesToNext30 + i * 30) * 60000
 				);
 
 				timeMarkers.push({
@@ -98,53 +97,29 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 			setTimeMarkers(timeMarkers);
 		};
 
-		calculateInitialTimeMarkers();
+		updateTimeMarkers();
 
-		const interval = setInterval(() => {
-			const now = new Date();
+		const msUntilNextMinute = 60000 - (Date.now() % 60000);
 
-			setTimeMarkers((prev) => {
-				if (
-					prev.length === 0 ||
-					now.getTime() < prev[0].date.getTime()
-				) {
-					return prev;
-				}
+		const syncTimeout = setTimeout(() => {
+			updateTimeMarkers();
 
-				const markers = [...prev];
+			const interval = setInterval(() => {
+				updateTimeMarkers();
+			}, 60000);
 
-				markers[0] = {
-					date: now,
-					time: now.toLocaleTimeString([], {
-						hour: "2-digit",
-						hour12: true,
-						minute: "2-digit"
-					})
-				};
+			window.epgInterval = interval;
+		}, msUntilNextMinute);
 
-				if (now.getTime() >= markers[1].date.getTime()) {
-					markers.splice(1, 1);
-				}
+		return () => {
+			clearTimeout(syncTimeout);
 
-				if (markers.length < 4) {
-					const nextDate = new Date(
-						markers[markers.length - 1].date.getTime() + 30 * 60000
-					);
-					markers.push({
-						date: nextDate,
-						time: nextDate.toLocaleTimeString([], {
-							hour: "2-digit",
-							hour12: true,
-							minute: "2-digit"
-						})
-					});
-				}
+			if (window.epgInterval) {
+				clearInterval(window.epgInterval);
 
-				return markers;
-			});
-		}, 60000);
-
-		return () => clearInterval(interval);
+				delete window.epgInterval;
+			}
+		};
 	}, []);
 
 	const [timeBracketIndex, setTimeBracketIndex] = useState(0);
@@ -232,7 +207,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 						className="flex flex-1 gap-2 rounded w-full"
 						key={channelIndex}
 					>
-						<div className="bg-slate-700 flex items-center justify-center rounded w-1/5">
+						<div className="bg-slate-700 flex items-center justify-center rounded text-center w-1/5">
 							{channel.channelName}
 						</div>
 						<div
