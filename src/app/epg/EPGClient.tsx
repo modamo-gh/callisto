@@ -3,6 +3,7 @@
 import { Poppins } from "next/font/google";
 import { useEffect, useState } from "react";
 import ChannelGuide from "./components/ChannelGuide";
+import { EPGProvider } from "./context/EPGContext";
 
 interface EPGClientProps {
 	initialData: any;
@@ -10,7 +11,7 @@ interface EPGClientProps {
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
-const EPGClient = ({ initialData }: EPGClientProps) => {
+const EPGContent = ({ initialData }: EPGClientProps) => {
 	const [channels] = useState(initialData);
 	const [currentChannel, setCurrentChannel] = useState(0);
 
@@ -134,25 +135,37 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 	}, [channels.length, timeBracketIndex]);
 
 	useEffect(() => {
-		// const fetchMovieDetails = async (tmdbID: number) => {
-		// 	try {
-		// 		const response = await fetch(
-		// 			`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-		// 		);
-		// 		if (!response.ok) {
-		// 			throw new Error("Failed to fetch");
-		// 		}
-		// 		const data = await response.json();
-		// 		setMovieDetails(data);
-		// 	} catch (error) {
-		// 		console.error("Error fetching movie details:", error);
-		// 	}
-		// };
-		// fetchMovieDetails(
-		// 	channels[currentChannel].channelName === "Most Popular Movies"
-		// 		? channels[currentChannel].data[0].ids.tmdb
-		// 		: channels[currentChannel].data[0].movie.ids.tmdb
-		// );
+		const fetchMovieDetails = async (tmdbID: number) => {
+			try {
+				const response = await fetch(
+					`https://api.themoviedb.org/3/movie/${tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
+				if (!response.ok) {
+					throw new Error("Failed to fetch");
+				}
+				const data = await response.json();
+				setMovieDetails(data);
+			} catch (error) {
+				console.error("Error fetching movie details:", error);
+			}
+		};
+
+		const fetchEpisodeDetails = async (tmdbID: number) => {
+			try {
+				console.log(channels[currentChannel][0]);
+			} catch (error) {
+				console.error("Error fetching episode details:", error);
+			}
+		};
+
+		channels[currentChannel].type === "movies"
+			? fetchMovieDetails(
+					channels[currentChannel].channelName ===
+						"Most Popular Movies"
+						? channels[currentChannel].data[0].ids.tmdb
+						: channels[currentChannel].data[0].movie.ids.tmdb
+			  )
+			: console.log(channels[currentChannel].data[0]);
 	}, [channels, currentChannel]);
 
 	return (
@@ -161,7 +174,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 		>
 			<div className="flex flex-1 gap-2 w-full">
 				<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
-					{/* <h1 className="text-4xl font-bold">
+					<h1 className="text-4xl font-bold">
 						{movieDetails?.title}
 					</h1>
 					<div className="flex flex-wrap gap-2 uppercase text-slate-300">
@@ -180,7 +193,7 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 					<div className="flex gap-6 mt-auto text-slate-400">
 						<p>⏱ {movieDetails?.runtime} mins</p>
 						<p>📅 {movieDetails?.release_date}</p>
-					</div> */}
+					</div>
 				</div>
 				<div className="bg-blue-500 flex-1 rounded"></div>
 			</div>
@@ -202,6 +215,14 @@ const EPGClient = ({ initialData }: EPGClientProps) => {
 				currentChannel={currentChannel}
 			/>
 		</div>
+	);
+};
+
+const EPGClient = ({ initialData }: EPGClientProps) => {
+	return (
+		<EPGProvider>
+			<EPGContent initialData={initialData} />
+		</EPGProvider>
 	);
 };
 
