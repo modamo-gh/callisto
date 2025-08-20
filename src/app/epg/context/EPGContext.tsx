@@ -5,10 +5,13 @@ import {
 	SetStateAction,
 	useCallback,
 	useContext,
+	useEffect,
+	useRef,
 	useState
 } from "react";
 
 export interface BasicContent {
+	id: string;
 	title: string;
 	tmdbID: number;
 	type: "movie" | "tv";
@@ -21,7 +24,6 @@ export interface EnrichedContent extends BasicContent {
 	genres?: string[];
 	overview?: string;
 	releaseDate?: string;
-	remainingRuntime?: number;
 	runtime?: number;
 	seasonNumber?: number;
 }
@@ -30,11 +32,15 @@ interface EPGContextType {
 	channels: any[];
 	currentChannelIndex: number;
 	currentContent: any;
-	enrichContent: (basicContent: BasicContent) => Promise<void>;
+	enrichContent: (
+		basicContent: BasicContent,
+		isFirstInChannel: boolean
+	) => Promise<void>;
 	enrichedCache: {
 		[tmdbID: number]: EnrichedContent;
 	};
 	hasBeenEnriched: Set<string>;
+	runtimeTracker: Map<string, number>;
 	setCurrentChannelIndex: Dispatch<SetStateAction<number>>;
 	setCurrentContent: Dispatch<SetStateAction<EnrichedContent | undefined>>;
 	setEnrichedCache: Dispatch<
@@ -43,6 +49,7 @@ interface EPGContextType {
 		}>
 	>;
 	setHasBeenEnriched: Dispatch<SetStateAction<Set<string>>>;
+	setRuntimeTracker: Dispatch<SetStateAction<Map<string, number>>>;
 }
 
 const EPGContext = createContext<EPGContextType | undefined>(undefined);
@@ -51,6 +58,9 @@ export const EPGProvider: React.FC<{
 	children: ReactNode;
 	initialChannels: any[];
 }> = ({ children, initialChannels }) => {
+	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 	const [channels] = useState(initialChannels);
 	const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
 	const [currentContent, setCurrentContent] = useState<
@@ -62,63 +72,116 @@ export const EPGProvider: React.FC<{
 	const [hasBeenEnriched, setHasBeenEnriched] = useState<Set<string>>(
 		new Set<string>()
 	);
+	const [runtimeTracker, setRuntimeTracker] = useState<Map<string, number>>(
+		new Map()
+	);
 
-	const enrichContent = useCallback(async (basicContent: EnrichedContent) => {
-		if (
-			enrichedCache[
-				basicContent.type === "movie" || !basicContent.episodeTMDBID
-					? basicContent.tmdbID
-					: basicContent.episodeTMDBID
-			]
-		) {
-			return;
-		}
+	useEffect(() => {
+		const updateRuntimes = () => {
+			setRuntimeTracker((prev) => {
+				const rT = new Map(prev);
 
-		try {
-			const response = await fetch(
-				`https://api.themoviedb.org/3/${basicContent.type}/${basicContent.tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-			);
+				for (const [id, runtime] of rT) {
+					rT.set(id, Math.max(0, runtime - 1));
+				}
 
-			if (!response.ok) {
-				throw new Error("Failed to fetch TMDB details");
+				return rT;
+			});
+		};
+
+		const MIN = 60000;
+		const msUntilNextMinute = MIN - (Date.now() % MIN);
+
+		timeoutRef.current = setTimeout(() => {
+			updateRuntimes();
+
+			intervalRef.current = setInterval(updateRuntimes, MIN);
+		}, msUntilNextMinute);
+
+		return () => {
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+				timeoutRef.current = null;
 			}
 
-			const tmdbData = await response.json();
-
-			let enrichedContent: EnrichedContent = {
-				...basicContent,
-				genres: tmdbData.genres.map((genre) => genre.name),
-				overview: tmdbData.overview,
-				releaseDate: tmdbData.release_date,
-				remainingRuntime: tmdbData.runtime,
-				runtime: tmdbData.runtime
-			};
-
-			if (basicContent.type === "tv") {
-				const episode = await getEpisode(enrichedContent, tmdbData);
-
-				enrichedContent = {
-					...enrichedContent,
-					episodeName: episode.name,
-					episodeNumber: episode.episode_number,
-					overview: episode.overview,
-					releaseDate: episode.air_date,
-					remainingRuntime: episode.runtime,
-					runtime: episode.runtime,
-					seasonNumber: episode.season_number
-				};
+			if (intervalRef.current) {
+				clearInterval(intervalRef.current);
+				intervalRef.current = null;
 			}
-
-			setEnrichedCache((prev) => ({
-				...prev,
-				[basicContent.type === "movie" || !basicContent.episodeTMDBID
-					? basicContent.tmdbID
-					: basicContent.episodeTMDBID]: enrichedContent
-			}));
-		} catch (error) {
-			console.error("Error fetching TMDB details:", error);
-		}
+		};
 	}, []);
+
+	const enrichContent = useCallback(
+		async (
+			basicContent: EnrichedContent,
+			isFirstInChannel: boolean = false
+		) => {
+			if (
+				enrichedCache[
+					basicContent.type === "movie" || !basicContent.episodeTMDBID
+						? basicContent.tmdbID
+						: basicContent.episodeTMDBID
+				]
+			) {
+				return;
+			}
+
+			try {
+				const response = await fetch(
+					`https://api.themoviedb.org/3/${basicContent.type}/${basicContent.tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to fetch TMDB details");
+				}
+
+				const tmdbData = await response.json();
+
+				let enrichedContent: EnrichedContent = {
+					...basicContent,
+					genres: tmdbData.genres.map((genre) => genre.name),
+					overview: tmdbData.overview,
+					releaseDate: tmdbData.release_date,
+					runtime: tmdbData.runtime
+				};
+
+				if (basicContent.type === "tv") {
+					const episode = await getEpisode(enrichedContent, tmdbData);
+
+					enrichedContent = {
+						...enrichedContent,
+						episodeName: episode.name,
+						episodeNumber: episode.episode_number,
+						overview: episode.overview,
+						releaseDate: episode.air_date,
+						runtime: episode.runtime,
+						seasonNumber: episode.season_number
+					};
+				}
+
+				if (isFirstInChannel) {
+					setRuntimeTracker((prev) => {
+						const rT = new Map(prev);
+
+						rT.set(basicContent.id, enrichedContent.runtime || 30);
+
+						return rT;
+					});
+				}
+
+				setEnrichedCache((prev) => ({
+					...prev,
+					[basicContent.type === "movie" ||
+					!basicContent.episodeTMDBID
+						? basicContent.tmdbID
+						: basicContent.episodeTMDBID]: enrichedContent
+				}));
+			} catch (error) {
+				console.error("Error fetching TMDB details:", error);
+			}
+		},
+		[]
+	);
 
 	const getEpisode = useCallback(
 		async (content: EnrichedContent, showData: any) => {
@@ -170,10 +233,12 @@ export const EPGProvider: React.FC<{
 		enrichContent,
 		enrichedCache,
 		hasBeenEnriched,
+		runtimeTracker,
 		setCurrentChannelIndex,
 		setCurrentContent,
 		setEnrichedCache,
-		setHasBeenEnriched
+		setHasBeenEnriched,
+		setRuntimeTracker
 	};
 
 	return <EPGContext.Provider value={value}>{children}</EPGContext.Provider>;

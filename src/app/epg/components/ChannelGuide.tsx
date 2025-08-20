@@ -6,6 +6,7 @@ const ChannelGuide = () => {
 		channels,
 		currentChannelIndex,
 		enrichedCache,
+		runtimeTracker,
 		setCurrentChannelIndex
 	} = useEPG();
 
@@ -128,9 +129,10 @@ const ChannelGuide = () => {
 										content.movie?.ids.tmdb ||
 										content.show.ids.tmdb
 								];
-
-							const contentPixelWidth = c?.runtime
-								? (c.runtime / 120) * containerWidth
+							const remainingRuntime =
+								runtimeTracker.get(c.id) || c?.runtime;
+							const contentPixelWidth = remainingRuntime
+								? (remainingRuntime / 120) * containerWidth
 								: containerWidth / 4;
 
 							return (

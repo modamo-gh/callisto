@@ -39,11 +39,18 @@ const EPGContent = () => {
 				continue;
 			}
 
-			for (const content of viewableChannel.data) {
+			for (let i = 0; i < viewableChannel.data.length; i++) {
+				const id = `${Date.now()}-${Math.random()
+					.toString(36)
+					.substring(2, 9)}`;
+
+				const content = viewableChannel.data[i];
+
 				let basicContent: EnrichedContent;
 
 				if (viewableChannel.type === "movies") {
 					basicContent = {
+						id,
 						title: content.title || content.movie.title,
 						tmdbID: content.ids?.tmdb || content.movie.ids.tmdb,
 						type: "movie"
@@ -53,6 +60,7 @@ const EPGContent = () => {
 						episodeName: content.episode?.title,
 						episodeNumber: content.episode?.number,
 						episodeTMDBID: content.episode?.ids.tmdb,
+						id,
 						seasonNumber: content.episode?.season,
 						title: content.show?.title || content.title,
 						tmdbID: content.show?.ids.tmdb || content.ids.tmdb,
@@ -60,10 +68,10 @@ const EPGContent = () => {
 					};
 				}
 
-				enrichContent(basicContent);
+				enrichContent(basicContent, i === 0);
 			}
 
-			setHasBeenEnriched((prev) => {
+			setHasBeenEnriched(() => {
 				const set = new Set<string>(hasBeenEnriched);
 
 				set.add(`${viewableChannel.channelName}`);
