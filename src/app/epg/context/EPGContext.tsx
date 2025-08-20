@@ -32,6 +32,7 @@ interface EPGContextType {
 	enrichedCache: {
 		[tmdbID: number]: EnrichedContent;
 	};
+	hasBeenEnriched: Set<string>;
 	setCurrentChannelIndex: Dispatch<SetStateAction<number>>;
 	setCurrentContent: Dispatch<SetStateAction<EnrichedContent | undefined>>;
 	setEnrichedCache: Dispatch<
@@ -39,6 +40,7 @@ interface EPGContextType {
 			[tmdbID: number]: EnrichedContent;
 		}>
 	>;
+	setHasBeenEnriched: Dispatch<SetStateAction<Set<string>>>;
 }
 
 const EPGContext = createContext<EPGContextType | undefined>(undefined);
@@ -55,6 +57,9 @@ export const EPGProvider: React.FC<{
 	const [enrichedCache, setEnrichedCache] = useState<{
 		[tmdbID: number]: EnrichedContent;
 	}>({});
+	const [hasBeenEnriched, setHasBeenEnriched] = useState<Set<string>>(
+		new Set<string>()
+	);
 
 	const enrichContent = useCallback(async (basicContent: BasicContent) => {
 		if (enrichedCache[basicContent.tmdbID]) {
@@ -142,9 +147,11 @@ export const EPGProvider: React.FC<{
 		currentContent,
 		enrichContent,
 		enrichedCache,
+		hasBeenEnriched,
 		setCurrentChannelIndex,
 		setCurrentContent,
-		setEnrichedCache
+		setEnrichedCache,
+		setHasBeenEnriched
 	};
 
 	return <EPGContext.Provider value={value}>{children}</EPGContext.Provider>;

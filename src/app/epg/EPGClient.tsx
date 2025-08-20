@@ -15,7 +15,13 @@ interface EPGClientProps {
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const EPGContent = () => {
-	const { channels, currentChannelIndex, enrichContent } = useEPG();
+	const {
+		channels,
+		currentChannelIndex,
+		enrichContent,
+		hasBeenEnriched,
+		setHasBeenEnriched
+	} = useEPG();
 
 	useEffect(() => {
 		const viewableChannels = [
@@ -29,6 +35,10 @@ const EPGContent = () => {
 		];
 
 		for (const viewableChannel of viewableChannels) {
+			if (hasBeenEnriched.has(`${viewableChannel.channelName}`)) {
+				return;
+			}
+
 			for (const content of viewableChannel.data) {
 				let basicContent: BasicContent;
 
@@ -48,8 +58,22 @@ const EPGContent = () => {
 
 				enrichContent(basicContent);
 			}
+
+			setHasBeenEnriched((prev) => {
+				const set = new Set<string>(hasBeenEnriched);
+
+				set.add(`${viewableChannel.channelName}`);
+
+				return set;
+			});
 		}
-	}, [channels, currentChannelIndex, enrichContent]);
+	}, [
+		channels,
+		currentChannelIndex,
+		enrichContent,
+		hasBeenEnriched,
+		setHasBeenEnriched
+	]);
 
 	return (
 		<div
