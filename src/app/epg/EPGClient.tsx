@@ -50,8 +50,8 @@ const EPGContent = () => {
 					};
 				} else {
 					basicContent = {
-						title: content.show?.title,
-						tmdbID: content.show.ids.tmdb,
+						title: content.show?.title || content.title,
+						tmdbID: content.show?.ids.tmdb || content.ids.tmdb,
 						type: "tv"
 					};
 				}
