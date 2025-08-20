@@ -91,15 +91,28 @@ const ChannelGuide = () => {
 
 							return (
 								<div
-									className="bg-slate-700 flex flex-shrink-0 items-center p-2 rounded text-xl"
+									className="bg-slate-700 flex flex-col flex-shrink-0 justify-center p-2 rounded text-xl"
 									key={contentIndex}
 									style={{
 										width: `${contentPixelWidth}px`
 									}}
 								>
-									<p className="text-white truncate">
-										{c?.title}
-									</p>
+									<p className="truncate">{c?.title}</p>
+									{c?.type === "tv" && (
+										<p className="text-sm">
+											S
+											{String(c.seasonNumber).padStart(
+												2,
+												"0"
+											)}
+											E
+											{String(c.episodeNumber).padStart(
+												2,
+												"0"
+											)}
+											: {c.episodeName}
+										</p>
+									)}
 								</div>
 							);
 						})}
