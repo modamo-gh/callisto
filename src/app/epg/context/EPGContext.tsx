@@ -1,13 +1,153 @@
-import { createContext, ReactNode, useContext } from "react";
+import {
+	createContext,
+	Dispatch,
+	ReactNode,
+	SetStateAction,
+	useCallback,
+	useContext,
+	useState
+} from "react";
 
-const EPGContext = createContext(undefined);
+export interface BasicContent {
+	title: string;
+	tmdbID: number;
+	type: "movie" | "tv";
+}
 
-export const EPGProvider: React.FC<{ children: ReactNode }> = ({
-	children
-}) => {
-	return (
-		<EPGContext.Provider value={undefined}>{children}</EPGContext.Provider>
+interface EnrichedContent extends BasicContent {
+	episodeName?: string;
+	episodeNumber?: number;
+	genres: string[];
+	overview: string;
+	runtime: number;
+	releaseDate: string;
+	seasonNumber?: number;
+}
+
+interface EPGContextType {
+	channels: any[];
+	currentChannelIndex: number;
+	currentContent: any;
+	enrichContent: (basicContent: BasicContent) => Promise<void>;
+	enrichedCache: {
+		[tmdbID: number]: EnrichedContent;
+	};
+	setCurrentChannelIndex: Dispatch<SetStateAction<number>>;
+	setCurrentContent: Dispatch<SetStateAction<EnrichedContent | undefined>>;
+	setEnrichedCache: Dispatch<
+		SetStateAction<{
+			[tmdbID: number]: EnrichedContent;
+		}>
+	>;
+}
+
+const EPGContext = createContext<EPGContextType | undefined>(undefined);
+
+export const EPGProvider: React.FC<{
+	children: ReactNode;
+	initialChannels: any[];
+}> = ({ children, initialChannels }) => {
+	const [channels] = useState(initialChannels);
+	const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
+	const [currentContent, setCurrentContent] = useState<
+		EnrichedContent | undefined
+	>();
+	const [enrichedCache, setEnrichedCache] = useState<{
+		[tmdbID: number]: EnrichedContent;
+	}>({});
+
+	const enrichContent = useCallback(async (basicContent: BasicContent) => {
+		if (enrichedCache[basicContent.tmdbID]) {
+			return;
+		}
+
+		try {
+			const response = await fetch(
+				`https://api.themoviedb.org/3/${basicContent.type}/${basicContent.tmdbID}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to fetch TMDB details");
+			}
+
+			const tmdbData = await response.json();
+
+			let enrichedContent: EnrichedContent = {
+				...basicContent,
+				genres: tmdbData.genres.map((genre) => genre.name),
+				overview: tmdbData.overview,
+				releaseDate: tmdbData.release_date,
+				runtime: tmdbData.runtime
+			};
+
+			if (basicContent.type === "tv") {
+				const episode = await getRandomEpisode(
+					enrichedContent.tmdbID,
+					tmdbData
+				);
+
+				enrichedContent = {
+					...enrichedContent,
+					episodeName: episode.name,
+					episodeNumber: episode.episode_number,
+					overview: episode.overview,
+					releaseDate: episode.air_date,
+					runtime: episode.runtime,
+					seasonNumber: episode.season_number
+				};
+			}
+
+			setEnrichedCache((prev) => ({
+				...prev,
+				[enrichedContent.tmdbID]: enrichedContent
+			}));
+		} catch (error) {
+			console.error("Error fetching TMDB details:", error);
+		}
+	}, []);
+
+	const getRandomEpisode = useCallback(
+		async (tmdbID: number, showData: any) => {
+			try {
+				const seasons = showData.seasons.filter(
+					(season) => season.season_number
+				);
+				const randomSeason =
+					seasons[Math.floor(Math.random() * seasons.length)]
+						.season_number;
+				const randomSeasonResponse = await fetch(
+					`https://api.themoviedb.org/3/tv/${tmdbID}/season/${randomSeason}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
+				const randomSeasonInfo = await randomSeasonResponse.json();
+				const releasedEpisodes = randomSeasonInfo.episodes.filter(
+					(episode) =>
+						Date.now() >= new Date(episode.air_date).getTime()
+				);
+				const randomEpisode =
+					releasedEpisodes[
+						Math.floor(Math.random() * releasedEpisodes.length)
+					];
+
+				return randomEpisode;
+			} catch (error) {
+				console.error("Error fetching random episode:", error);
+			}
+		},
+		[]
 	);
+
+	const value: EPGContextType = {
+		channels,
+		currentChannelIndex,
+		currentContent,
+		enrichContent,
+		enrichedCache,
+		setCurrentChannelIndex,
+		setCurrentContent,
+		setEnrichedCache
+	};
+
+	return <EPGContext.Provider value={value}>{children}</EPGContext.Provider>;
 };
 
 export const useEPG = () => {
