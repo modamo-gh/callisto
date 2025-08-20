@@ -16,7 +16,7 @@ const InfoPane = () => {
 			<h1 className="text-4xl font-bold">
 				{enrichedCurrentContent?.title}
 			</h1>
-			{enrichedCurrentContent.type === "tv" && (
+			{enrichedCurrentContent?.type === "tv" && (
 				<h2 className="text-2xl font-semibold">
 					S
 					{String(enrichedCurrentContent.seasonNumber).padStart(

@@ -9,14 +9,19 @@ const ChannelGuide = () => {
 		setCurrentChannelIndex
 	} = useEPG();
 
-	const contentContainerRef = useRef<HTMLDivElement>(null);
+	const contentContainerRefs = useRef<(HTMLDivElement | null)[]>([
+		null,
+		null,
+		null
+	]);
+	const measureRef = useRef<HTMLDivElement>(null);
 
 	const [containerWidth, setContainerWidth] = useState(0);
 
 	useLayoutEffect(() => {
 		const measureWidth = () => {
-			if (contentContainerRef.current) {
-				setContainerWidth(contentContainerRef.current.offsetWidth);
+			if (measureRef.current) {
+				setContainerWidth(measureRef.current?.offsetWidth);
 			}
 		};
 
@@ -26,6 +31,25 @@ const ChannelGuide = () => {
 
 		return () => window.removeEventListener("resize", measureWidth);
 	}, []);
+
+	const scrollHorizontal = (direction: "left" | "right") => {
+		const scrollAmount = containerWidth / 4;
+
+		contentContainerRefs.current.forEach((ref) => {
+			if (ref) {
+				const currentScroll = ref.scrollLeft;
+				const newScrollPosition =
+					direction === "right"
+						? currentScroll + scrollAmount
+						: currentScroll - scrollAmount;
+
+				ref.scrollTo({
+					behavior: "smooth",
+					left: Math.max(0, newScrollPosition)
+				});
+			}
+		});
+	};
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -42,6 +66,14 @@ const ChannelGuide = () => {
 						(prev) => (prev + 1) % channels.length
 					);
 					break;
+				case "ArrowLeft":
+					event.preventDefault();
+					scrollHorizontal("left");
+					break;
+				case "ArrowRight":
+					event.preventDefault();
+					scrollHorizontal("right");
+					break;
 				default:
 					break;
 			}
@@ -52,7 +84,12 @@ const ChannelGuide = () => {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [channels.length, currentChannelIndex, setCurrentChannelIndex]);
+	}, [
+		channels.length,
+		containerWidth,
+		currentChannelIndex,
+		setCurrentChannelIndex
+	]);
 
 	return (
 		<div className="flex flex-col flex-1 gap-2 w-full">
@@ -74,7 +111,13 @@ const ChannelGuide = () => {
 					</div>
 					<div
 						className="flex gap-2 no-scrollbar overflow-x-auto w-4/5"
-						ref={contentContainerRef}
+						ref={(el) => {
+							contentContainerRefs.current[channelIndex] = el;
+
+							if (channelIndex === 0) {
+								measureRef.current = el;
+							}
+						}}
 						style={{ scrollbarWidth: "none" }}
 					>
 						{channel.data.map((content, contentIndex: number) => {
