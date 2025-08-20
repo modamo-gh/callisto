@@ -16,6 +16,21 @@ const InfoPane = () => {
 			<h1 className="text-4xl font-bold">
 				{enrichedCurrentContent?.title}
 			</h1>
+			{enrichedCurrentContent.type === "tv" && (
+				<h2 className="text-2xl font-semibold">
+					S
+					{String(enrichedCurrentContent.seasonNumber).padStart(
+						2,
+						"0"
+					)}
+					E
+					{String(enrichedCurrentContent.episodeNumber).padStart(
+						2,
+						"0"
+					)}
+					: {enrichedCurrentContent.episodeName}
+				</h2>
+			)}
 			<div className="flex flex-wrap gap-2 uppercase text-slate-300">
 				{enrichedCurrentContent?.genres &&
 					enrichedCurrentContent.genres.map(
