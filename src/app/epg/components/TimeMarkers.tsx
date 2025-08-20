@@ -1,41 +1,26 @@
-import { useEffect, useState } from "react";
-import { useEPG } from "../context/EPGContext";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const MIN = 60000;
+
+const floorNowToMinute = (d: Date) => {
+	return new Date(Math.floor(d.getTime() / MIN) * MIN);
+};
 
 const TimeMarkers = () => {
-	const { channels } = useEPG();
+	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const [timeBracketIndex, setTimeBracketIndex] = useState(0);
-	const [timeMarkers, setTimeMarkers] = useState<
-		{ date: Date; time: string }[]
-	>([]);
+	const [now, setNow] = useState(() => floorNowToMinute(new Date()));
+	const [timeMarkerIndex, setTimeMarkerIndex] = useState(0);
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
 			switch (event.key) {
 				case "ArrowLeft":
-					setTimeBracketIndex((prev) =>
-						prev - 1 < 0 ? 0 : prev - 1
-					);
+					setTimeMarkerIndex((prev) => (prev - 1 < 0 ? 0 : prev - 1));
 					break;
 				case "ArrowRight":
-					setTimeMarkers((prev) => {
-						const markers = [...prev];
-						const nextDate = new Date(
-							markers[markers.length - 1].date.getTime() +
-								30 * 60000
-						);
-						markers.push({
-							date: nextDate,
-							time: nextDate.toLocaleTimeString([], {
-								hour: "2-digit",
-								hour12: true,
-								minute: "2-digit"
-							})
-						});
-
-						return markers;
-					});
-					setTimeBracketIndex((prev) => prev + 1);
+					setTimeMarkerIndex((prev) => prev + 1);
 					break;
 				default:
 					break;
@@ -47,78 +32,82 @@ const TimeMarkers = () => {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [channels.length, timeBracketIndex]);
+	}, []);
 
 	useEffect(() => {
-		const updateTimeMarkers = () => {
-			const roundedMS = Math.floor(Date.now() / 60000) * 60000;
-			const roundedNow = new Date(roundedMS);
-			const timeMarkers = [
-				{
-					date: roundedNow,
-					time: roundedNow.toLocaleTimeString([], {
-						hour: "2-digit",
-						hour12: true,
-						minute: "2-digit"
-					})
-				}
-			];
-			const currentMinutes = roundedNow.getMinutes();
-			const minutesToNext30 =
-				(currentMinutes < 30 ? 30 : 60) - currentMinutes;
+		const sync = () => setNow(floorNowToMinute(new Date()));
+		const msUntilNextMinute = MIN - (Date.now() % MIN);
 
-			for (let i = 0; i < 3; i++) {
-				const time = new Date(
-					roundedNow.getTime() + (minutesToNext30 + i * 30) * 60000
-				);
+		timeoutRef.current = setTimeout(() => {
+			sync();
 
-				timeMarkers.push({
-					date: time,
-					time: time.toLocaleTimeString([], {
-						hour: "2-digit",
-						hour12: true,
-						minute: "2-digit"
-					})
-				});
-			}
-
-			setTimeMarkers(timeMarkers);
-		};
-
-		updateTimeMarkers();
-
-		const msUntilNextMinute = 60000 - (Date.now() % 60000);
-
-		const syncTimeout = setTimeout(() => {
-			updateTimeMarkers();
-
-			const interval = setInterval(() => {
-				updateTimeMarkers();
-			}, 60000);
-
-			window.epgInterval = interval;
+			intervalRef.current = setInterval(sync, MIN);
 		}, msUntilNextMinute);
 
 		return () => {
-			clearTimeout(syncTimeout);
+			if (timeoutRef.current) {
+				clearTimeout(timeoutRef.current);
+				timeoutRef.current = null;
+			}
 
-			if (window.epgInterval) {
-				clearInterval(window.epgInterval);
-
-				delete window.epgInterval;
+			if (intervalRef.current) {
+				clearInterval(intervalRef.current);
+				intervalRef.current = null;
 			}
 		};
 	}, []);
+
+	const timeMarkers = useMemo(() => {
+		const firstMarker = now;
+		const minutes = now.getMinutes();
+		const minutesToNext30 = (minutes < 30 ? 30 : 60) - minutes;
+		const secondMarker = new Date(now.getTime() + minutesToNext30 * MIN);
+		const neededAmountOfMarkers = timeMarkerIndex + 4;
+		const markers: { date: Date; time: string; key: number }[] = [];
+
+		const formatTime = (d: Date) => {
+			return d.toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+				hour12: true
+			});
+		};
+
+		markers.push({
+			date: firstMarker,
+			time: formatTime(firstMarker),
+			key: firstMarker.getTime()
+		});
+
+		markers.push({
+			date: secondMarker,
+			time: formatTime(secondMarker),
+			key: secondMarker.getTime()
+		});
+
+		while (markers.length < neededAmountOfMarkers) {
+			const last = markers[markers.length - 1].date;
+			const next = new Date(last.getTime() + 30 * MIN);
+
+			markers.push({
+				date: next,
+				time: formatTime(next),
+				key: next.getTime()
+			});
+		}
+
+		return markers;
+	}, [now, timeMarkerIndex]);
 
 	return (
 		<div className="flex gap-2 justify-around w-full">
 			<div className="flex-1" />
 			{timeMarkers
-				.slice(timeBracketIndex, timeBracketIndex + 4)
-				.map((marker, index) => (
+				.slice(timeMarkerIndex, timeMarkerIndex + 4)
+				.map((marker) => (
 					<div
 						className="flex-1"
-						key={index}
+						key={marker.key}
 					>
 						{marker.time}
 					</div>

@@ -19,8 +19,9 @@ interface EnrichedContent extends BasicContent {
 	episodeNumber?: number;
 	genres: string[];
 	overview: string;
-	runtime: number;
 	releaseDate: string;
+	remainingRuntime: number;
+	runtime: number;
 	seasonNumber?: number;
 }
 
@@ -82,6 +83,7 @@ export const EPGProvider: React.FC<{
 				genres: tmdbData.genres.map((genre) => genre.name),
 				overview: tmdbData.overview,
 				releaseDate: tmdbData.release_date,
+				remainingRuntime: tmdbData.runtime,
 				runtime: tmdbData.runtime
 			};
 
@@ -97,6 +99,7 @@ export const EPGProvider: React.FC<{
 					episodeNumber: episode.episode_number,
 					overview: episode.overview,
 					releaseDate: episode.air_date,
+					remainingRuntime: episode.runtime,
 					runtime: episode.runtime,
 					seasonNumber: episode.season_number
 				};
