@@ -6,7 +6,7 @@ import ChannelGuide from "./components/ChannelGuide";
 import InfoPane from "./components/InfoPane";
 import TimeMarkers from "./components/TimeMarkers";
 import VideoPane from "./components/VideoPane";
-import { BasicContent, EPGProvider, useEPG } from "./context/EPGContext";
+import { EnrichedContent, EPGProvider, useEPG } from "./context/EPGContext";
 
 interface EPGClientProps {
 	initialData: any;
@@ -36,11 +36,11 @@ const EPGContent = () => {
 
 		for (const viewableChannel of viewableChannels) {
 			if (hasBeenEnriched.has(`${viewableChannel.channelName}`)) {
-				return;
+				continue;
 			}
 
 			for (const content of viewableChannel.data) {
-				let basicContent: BasicContent;
+				let basicContent: EnrichedContent;
 
 				if (viewableChannel.type === "movies") {
 					basicContent = {
@@ -50,6 +50,10 @@ const EPGContent = () => {
 					};
 				} else {
 					basicContent = {
+						episodeName: content.episode?.title,
+						episodeNumber: content.episode?.number,
+						episodeTMDBID: content.episode?.ids.tmdb,
+						seasonNumber: content.episode?.season,
 						title: content.show?.title || content.title,
 						tmdbID: content.show?.ids.tmdb || content.ids.tmdb,
 						type: "tv"

@@ -14,14 +14,15 @@ export interface BasicContent {
 	type: "movie" | "tv";
 }
 
-interface EnrichedContent extends BasicContent {
+export interface EnrichedContent extends BasicContent {
 	episodeName?: string;
 	episodeNumber?: number;
-	genres: string[];
-	overview: string;
-	releaseDate: string;
-	remainingRuntime: number;
-	runtime: number;
+	episodeTMDBID?: number;
+	genres?: string[];
+	overview?: string;
+	releaseDate?: string;
+	remainingRuntime?: number;
+	runtime?: number;
 	seasonNumber?: number;
 }
 
@@ -62,8 +63,14 @@ export const EPGProvider: React.FC<{
 		new Set<string>()
 	);
 
-	const enrichContent = useCallback(async (basicContent: BasicContent) => {
-		if (enrichedCache[basicContent.tmdbID]) {
+	const enrichContent = useCallback(async (basicContent: EnrichedContent) => {
+		if (
+			enrichedCache[
+				basicContent.type === "movie" || !basicContent.episodeTMDBID
+					? basicContent.tmdbID
+					: basicContent.episodeTMDBID
+			]
+		) {
 			return;
 		}
 
@@ -88,10 +95,7 @@ export const EPGProvider: React.FC<{
 			};
 
 			if (basicContent.type === "tv") {
-				const episode = await getRandomEpisode(
-					enrichedContent.tmdbID,
-					tmdbData
-				);
+				const episode = await getEpisode(enrichedContent, tmdbData);
 
 				enrichedContent = {
 					...enrichedContent,
@@ -107,36 +111,51 @@ export const EPGProvider: React.FC<{
 
 			setEnrichedCache((prev) => ({
 				...prev,
-				[enrichedContent.tmdbID]: enrichedContent
+				[basicContent.type === "movie" || !basicContent.episodeTMDBID
+					? basicContent.tmdbID
+					: basicContent.episodeTMDBID]: enrichedContent
 			}));
 		} catch (error) {
 			console.error("Error fetching TMDB details:", error);
 		}
 	}, []);
 
-	const getRandomEpisode = useCallback(
-		async (tmdbID: number, showData: any) => {
+	const getEpisode = useCallback(
+		async (content: EnrichedContent, showData: any) => {
 			try {
-				const seasons = showData.seasons.filter(
-					(season) => season.season_number
-				);
-				const randomSeason =
-					seasons[Math.floor(Math.random() * seasons.length)]
-						.season_number;
-				const randomSeasonResponse = await fetch(
-					`https://api.themoviedb.org/3/tv/${tmdbID}/season/${randomSeason}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-				);
-				const randomSeasonInfo = await randomSeasonResponse.json();
-				const releasedEpisodes = randomSeasonInfo.episodes.filter(
-					(episode) =>
-						Date.now() >= new Date(episode.air_date).getTime()
-				);
-				const randomEpisode =
-					releasedEpisodes[
-						Math.floor(Math.random() * releasedEpisodes.length)
-					];
+				let season = content.seasonNumber || null;
 
-				return randomEpisode;
+				if (!season) {
+					const seasons = showData.seasons.filter(
+						(s) => s.season_number
+					);
+					season =
+						seasons[Math.floor(Math.random() * seasons.length)]
+							.season_number;
+				}
+
+				const seasonResponse = await fetch(
+					`https://api.themoviedb.org/3/tv/${content.tmdbID}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
+				const seasonInfo = await seasonResponse.json();
+
+				let episode =
+					seasonInfo.episodes.find(
+						(e) => e.episode_number === content.episodeNumber
+					) || null;
+
+				if (!episode) {
+					const releasedEpisodes = seasonInfo.episodes.filter(
+						(e) => Date.now() >= new Date(e.air_date).getTime()
+					);
+
+					episode =
+						releasedEpisodes[
+							Math.floor(Math.random() * releasedEpisodes.length)
+						];
+				}
+
+				return episode;
 			} catch (error) {
 				console.error("Error fetching random episode:", error);
 			}

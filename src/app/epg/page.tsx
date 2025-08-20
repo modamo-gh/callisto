@@ -19,7 +19,7 @@ const EPG = async () => {
 		trendingShows,
 		recentlyWatchedMovies,
 		recommendedMovies,
-		recommendedShows
+		recommendedShows, recentlyWatchedEpisodes
 	] = await Promise.all([
 		traktRequest("/movies/trending", { next: { revalidate: 300 } }),
 		traktRequest("/movies/popular", { next: { revalidate: 300 } }),
@@ -28,8 +28,10 @@ const EPG = async () => {
 		traktRequest("/shows/trending", { next: { revalidate: 300 } }),
 		traktRequest("/users/me/history/movies", { cache: "no-store" }),
 		traktRequest("/recommendations/movies", { cache: "no-store" }),
-		traktRequest("/recommendations/shows", { cache: "no-store" })
+		traktRequest("/recommendations/shows", { cache: "no-store" }),traktRequest("/users/me/history/episodes", { cache: "no-store" }),
 	]);
+
+	console.log(recentlyWatchedEpisodes)
 
 	const initialData = [
 		{ channelName: "Weekend Box Office", data: boxOffice, type: "movies" },
@@ -67,7 +69,11 @@ const EPG = async () => {
 			channelName: "Recommended Shows",
 			data: recommendedShows,
 			type: "shows"
-		}
+		},{
+			channelName: "Recently Watched Episodes",
+			data: recentlyWatchedEpisodes,
+			type: "shows"
+		},
 	];
 
 	return <EPGClient initialData={initialData} />;

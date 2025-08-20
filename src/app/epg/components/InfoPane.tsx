@@ -5,10 +5,10 @@ const InfoPane = () => {
 
 	const currentContent = channels[currentChannelIndex].data[0];
 	const enrichedCurrentContent =
-		enrichedCache[
+		enrichedCache[currentContent.episode?.ids.tmdb ||
 			currentContent.ids?.tmdb ||
-				channels[currentChannelIndex].data[0].movie?.ids.tmdb ||
-				channels[currentChannelIndex].data[0].show.ids.tmdb
+				currentContent.movie?.ids.tmdb ||
+				currentContent.show.ids.tmdb
 		];
 
 	return (

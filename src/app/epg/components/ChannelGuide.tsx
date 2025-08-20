@@ -123,7 +123,8 @@ const ChannelGuide = () => {
 						{channel.data.map((content, contentIndex: number) => {
 							const c =
 								enrichedCache[
-									content.ids?.tmdb ||
+									content.episode?.ids.tmdb ||
+										content.ids?.tmdb ||
 										content.movie?.ids.tmdb ||
 										content.show.ids.tmdb
 								];
@@ -142,7 +143,7 @@ const ChannelGuide = () => {
 								>
 									<p className="truncate">{c?.title}</p>
 									{c?.type === "tv" && (
-										<p className="text-sm">
+										<p className="text-sm truncate">
 											S
 											{String(c.seasonNumber).padStart(
 												2,
