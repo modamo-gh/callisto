@@ -130,7 +130,7 @@ const ChannelGuide = () => {
 										content.show.ids.tmdb
 								];
 							const remainingRuntime =
-								runtimeTracker.get(c.id) || c?.runtime;
+								runtimeTracker.get(c?.id) || c?.runtime;
 							const contentPixelWidth = remainingRuntime
 								? (remainingRuntime / 120) * containerWidth
 								: containerWidth / 4;

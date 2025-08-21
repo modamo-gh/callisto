@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 		const tokenResponse = await fetch("https://api.trakt.tv/oauth/token", {
 			body: JSON.stringify({
 				client_id: process.env.NEXT_PUBLIC_TRAKT_CLIENT_ID,
-				client_secret: process.env.NEXT_PUBLIC_TRAKT_CLIENT_SECRET,
+				client_secret: process.env.TRAKT_CLIENT_SECRET,
 				code,
 				grant_type: "authorization_code",
 				redirect_uri: process.env.NEXT_PUBLIC_TRAKT_REDIRECT_URI

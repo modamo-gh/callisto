@@ -150,12 +150,12 @@ export const EPGProvider: React.FC<{
 
 					enrichedContent = {
 						...enrichedContent,
-						episodeName: episode.name,
-						episodeNumber: episode.episode_number,
-						overview: episode.overview,
-						releaseDate: episode.air_date,
-						runtime: episode.runtime,
-						seasonNumber: episode.season_number
+						episodeName: episode?.name,
+						episodeNumber: episode?.episode_number,
+						overview: episode?.overview,
+						releaseDate: episode?.air_date,
+						runtime: episode?.runtime,
+						seasonNumber: episode?.season_number
 					};
 				}
 
