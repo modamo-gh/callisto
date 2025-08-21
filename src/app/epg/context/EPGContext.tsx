@@ -72,6 +72,7 @@ export const EPGProvider: React.FC<{
 	const [hasBeenEnriched, setHasBeenEnriched] = useState<Set<string>>(
 		new Set<string>()
 	);
+	const [currentRDLink, setCurrentRDLink] = useState<string | null>(null);
 	const [runtimeTracker, setRuntimeTracker] = useState<Map<string, number>>(
 		new Map()
 	);
@@ -110,6 +111,30 @@ export const EPGProvider: React.FC<{
 			}
 		};
 	}, []);
+
+	const sessionRef = useRef(
+		Array.from(crypto.getRandomValues(new Uint8Array(6)))
+			.map((b) => b.toString(16).padStart(2, "0"))
+			.join("")
+			.slice(0, 8)
+			.toUpperCase()
+	);
+
+	useEffect(() => {
+		const params = new URLSearchParams({
+			prefix: process.env.SNOWFL_PREFIX,
+			q: `${channels[currentChannelIndex].title} S${pad2(channels[currentChannelIndex].seasonNumber)}E${pad2(channels[currentChannelIndex].episodeNumber)}`,
+			session: sessionRef.current,
+			page: "0",
+			sort: "NONE",
+			top: "NONE",
+			nsfw: "1"
+		});
+
+		const r = await fetch(`/api/snowfl?${params.toString()}`);
+
+		console.log(r);
+	}, [currentChannelIndex]);
 
 	const enrichContent = useCallback(
 		async (

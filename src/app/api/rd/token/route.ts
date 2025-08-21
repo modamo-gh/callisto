@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
 		headers: { "content-type": "application/x-www-form-urlencoded" },
 		method: "POST"
 	});
-    
+
     if (!rd.ok) {
 		return new NextResponse(await rd.text(), { status: rd.status });
 	}
 
-	const data = rd.json();
+	const data = await rd.json();
 
 	return NextResponse.json(data, {
 		headers: { "cache-control": "no-store" }
