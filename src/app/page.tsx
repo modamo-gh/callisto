@@ -40,6 +40,8 @@ const Home = () => {
 	const [rdDevice, setRDDevice] = useState<DeviceCode | null>(null);
 	const [rdError, setRDError] = useState<string | null>(null);
 	const [rdTokens, setRDTokens] = useState<Tokens | null>(null);
+	const [traktAuthed, setTraktAuthed] = useState(false);
+	const [traktError, setTraktError] = useState<string | null>(null);
 
 	const handleRDAuth = async () => {
 		const r = await fetch("/api/rd/start");
@@ -149,6 +151,22 @@ const Home = () => {
 		})();
 	}, [rdCredentials, rdDevice]);
 
+	useEffect(() => {
+		const checkTraktAuth = async () => {
+			try {
+				const response = await fetch("/api/auth/trakt/verify");
+
+				if (response.ok) {
+					setTraktAuthed(true);
+				}
+			} catch (error) {
+				console.error("Failed to verify Trakt auth:", error);
+			}
+		};
+
+		checkTraktAuth();
+	}, []);
+
 	const handleTraktAuth = () => {
 		const clientID = process.env.NEXT_PUBLIC_TRAKT_CLIENT_ID;
 		const redirectURI = encodeURIComponent(
@@ -158,6 +176,7 @@ const Home = () => {
 
 		window.location.href = traktAuthURL;
 	};
+
 	return (
 		<div className="bg-slate-800 flex flex-col gap-6 h-screen items-center justify-center relative w-screen">
 			<div className="absolute inset-0 pointer-events-none">
@@ -173,19 +192,32 @@ const Home = () => {
 			>
 				Combining the comfort of cable with the convenience of streaming
 			</h2>
-			<div className="flex gap-4">
-				<button
-					className={`${orbitron.className} bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 font-bold text-slate-100 px-6 py-3 rounded tracking-wide transition-colors`}
-					onClick={handleTraktAuth}
-				>
-					Authorize Trakt
-				</button>
-				<button
-					className={`${orbitron.className} bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 font-bold text-slate-100 px-6 py-3 rounded tracking-wide transition-colors`}
-					onClick={handleRDAuth}
-				>
-					Authorize Real Debrid
-				</button>
+			<div className="flex flex-col items-center gap-4">
+				<div className="flex gap-2 items-center">
+					<button
+						className={`${
+							orbitron.className
+						} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
+							traktAuthed
+								? "bg-slate-700"
+								: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
+						}`}
+						disabled={traktAuthed}
+						onClick={handleTraktAuth}
+					>
+						Authorize Trakt
+					</button>
+					<p className="text-4xl">{!traktAuthed ? "⌛" : "✅"}</p>
+				</div>
+				<div className="flex gap-2 items-center">
+					<button
+						className={`${orbitron.className} bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 font-bold text-slate-100 px-6 py-3 rounded tracking-wide transition-colors`}
+						onClick={handleRDAuth}
+					>
+						Authorize Real Debrid
+					</button>
+					<p className="text-4xl">{!rdTokens ? "⌛" : "✅"}</p>
+				</div>
 			</div>
 		</div>
 	);
