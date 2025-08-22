@@ -1,6 +1,7 @@
 "use client";
 
 import { Orbitron } from "next/font/google";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const orbitron = Orbitron({
@@ -60,6 +61,14 @@ const Home = () => {
 			"_blank"
 		);
 	};
+
+	const router = useRouter();
+
+	useEffect(() => {
+		if (traktAuthed && rdTokens?.access_token) {
+			router.push("/epg");
+		}
+	}, [rdTokens?.access_token, router, traktAuthed]);
 
 	useEffect(() => {
 		if (!rdDevice) {
@@ -147,7 +156,7 @@ const Home = () => {
 				return;
 			}
 
-			const tokens = (await r.json()) as Tokens
+			const tokens = (await r.json()) as Tokens;
 
 			setRDTokens(tokens);
 			localStorage.setItem("rd_tokens", JSON.stringify(tokens));
