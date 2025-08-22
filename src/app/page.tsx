@@ -44,7 +44,7 @@ const Home = () => {
 	const [traktError, setTraktError] = useState<string | null>(null);
 
 	const handleRDAuth = async () => {
-		const r = await fetch("/api/rd/start");
+		const r = await fetch("/api/auth/rd/start");
 
 		if (!r.ok) {
 			setRDError(await r.text());
@@ -69,7 +69,7 @@ const Home = () => {
 		const started = Date.now();
 
 		const poll = async () => {
-			const r = await fetch("/api/rd/credentials", {
+			const r = await fetch("/api/auth/rd/credentials", {
 				body: JSON.stringify({ device_code: rdDevice.device_code }),
 				headers: {
 					"cache-control": "no-store",
@@ -129,7 +129,7 @@ const Home = () => {
 		exchangedRef.current = true;
 
 		(async () => {
-			const r = await fetch("/api/rd/token", {
+			const r = await fetch("/api/auth/rd/token", {
 				body: JSON.stringify({
 					client_id: rdCredentials.client_id,
 					client_secret: rdCredentials.client_secret,
@@ -147,7 +147,10 @@ const Home = () => {
 				return;
 			}
 
-			setRDTokens((await r.json()) as Tokens);
+			const tokens = (await r.json()) as Tokens
+
+			setRDTokens(tokens);
+			localStorage.setItem("rd_tokens", JSON.stringify(tokens));
 		})();
 	}, [rdCredentials, rdDevice]);
 
@@ -165,6 +168,12 @@ const Home = () => {
 		};
 
 		checkTraktAuth();
+
+		const savedRDTokens = localStorage.getItem("rd_tokens");
+
+		if (savedRDTokens) {
+			setRDTokens(JSON.parse(savedRDTokens));
+		}
 	}, []);
 
 	const handleTraktAuth = () => {
@@ -211,12 +220,21 @@ const Home = () => {
 				</div>
 				<div className="flex gap-2 items-center">
 					<button
-						className={`${orbitron.className} bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 font-bold text-slate-100 px-6 py-3 rounded tracking-wide transition-colors`}
+						className={`${
+							orbitron.className
+						} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
+							rdTokens?.access_token
+								? "bg-slate-700"
+								: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
+						}`}
+						disabled={!!rdTokens?.access_token}
 						onClick={handleRDAuth}
 					>
 						Authorize Real Debrid
 					</button>
-					<p className="text-4xl">{!rdTokens ? "⌛" : "✅"}</p>
+					<p className="text-4xl">
+						{!rdTokens?.access_token ? "⌛" : "✅"}
+					</p>
 				</div>
 			</div>
 		</div>
