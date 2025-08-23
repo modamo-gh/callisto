@@ -2,26 +2,18 @@
 
 import { Poppins } from "next/font/google";
 import { useEffect } from "react";
+import { EPGClientProps } from "../lib/types";
 import ChannelGuide from "./components/ChannelGuide";
 import InfoPane from "./components/InfoPane";
 import TimeMarkers from "./components/TimeMarkers";
 import VideoPane from "./components/VideoPane";
-import { EnrichedContent, EPGProvider, useEPG } from "./context/EPGContext";
-
-interface EPGClientProps {
-	initialData: any;
-}
+import { EPGProvider, useEPG } from "./context/EPGContext";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const EPGContent = () => {
-	const {
-		channels,
-		currentChannelIndex,
-		enrichContent,
-		hasBeenEnriched,
-		setHasBeenEnriched
-	} = useEPG();
+	const { channels, currentChannelIndex, getProgramMeta, tmdbCache } =
+		useEPG();
 
 	useEffect(() => {
 		const viewableChannels = [
@@ -34,58 +26,60 @@ const EPGContent = () => {
 			channels[(currentChannelIndex + 1) % channels.length]
 		];
 
-		for (const viewableChannel of viewableChannels) {
-			if (hasBeenEnriched.has(`${viewableChannel.channelName}`)) {
-				continue;
-			}
+		for (const channel of viewableChannels) {
+			for (let i = 0; i < channel.programs.length; i++) {
+				const program = channel.programs[i];
 
-			for (let i = 0; i < viewableChannel.data.length; i++) {
-				const id = `${Date.now()}-${Math.random()
-					.toString(36)
-					.substring(2, 9)}`;
-
-				const content = viewableChannel.data[i];
-
-				let basicContent: EnrichedContent;
-
-				if (viewableChannel.type === "movies") {
-					basicContent = {
-						id,
-						title: content.title || content.movie.title,
-						tmdbID: content.ids?.tmdb || content.movie.ids.tmdb,
-						type: "movie"
-					};
-				} else {
-					basicContent = {
-						episodeName: content.episode?.title,
-						episodeNumber: content.episode?.number,
-						episodeTMDBID: content.episode?.ids.tmdb,
-						id,
-						seasonNumber: content.episode?.season,
-						title: content.show?.title || content.title,
-						tmdbID: content.show?.ids.tmdb || content.ids.tmdb,
-						type: "tv"
-					};
+				if (!tmdbCache.has(program.tmdb)) {
+					getProgramMeta(i, program);
 				}
 
-				enrichContent(basicContent, i === 0);
+				// if (hasBeenEnriched.has(`${viewableChannel.name}`)) {
+				// 	continue;
+				// }
+
+				// for (let i = 0; i < viewableChannel.programs.length; i++) {
+				// 	const id = `${Date.now()}-${Math.random()
+				// 		.toString(36)
+				// 		.substring(2, 9)}`;
+
+				// 	const program = viewableChannel.programs[i];
+
+				// 	let basicContent: EnrichedContent;
+
+				// 	if (viewableChannel.type === "movies") {
+				// 		basicContent = {
+				// 			id,
+				// 			title: program.title,
+				// 			tmdb: program.tmdb,
+				// 			type: "movie"
+				// 		};
+				// 	} else {
+				// 		basicContent = {
+				// 			episodeName: program.episode?.title,
+				// 			episodeNumber: program.episode?.number,
+				// 			episodeTMDBID: program.episode?.ids.tmdb,
+				// 			id,
+				// 			seasonNumber: program.episode?.season,
+				// 			title: program.show?.title || program.title,
+				// 			tmdb: program.tmdb,
+				// 			type: "tv"
+				// 		};
+				// 	}
+
+				// 	enrichContent(basicContent, i === 0);
+				// }
+
+				// setHasBeenEnriched(() => {
+				// 	const set = new Set<string>(hasBeenEnriched);
+
+				// 	set.add(`${viewableChannel.name}`);
+
+				// 	return set;
+				// });
 			}
-
-			setHasBeenEnriched(() => {
-				const set = new Set<string>(hasBeenEnriched);
-
-				set.add(`${viewableChannel.channelName}`);
-
-				return set;
-			});
 		}
-	}, [
-		channels,
-		currentChannelIndex,
-		enrichContent,
-		hasBeenEnriched,
-		setHasBeenEnriched
-	]);
+	}, [channels, currentChannelIndex, getProgramMeta, tmdbCache]);
 
 	return (
 		<div
@@ -101,9 +95,9 @@ const EPGContent = () => {
 	);
 };
 
-const EPGClient = ({ initialData }: EPGClientProps) => {
+const EPGClient = ({ channels }: EPGClientProps) => {
 	return (
-		<EPGProvider initialChannels={initialData}>
+		<EPGProvider channels={channels}>
 			<EPGContent />
 		</EPGProvider>
 	);

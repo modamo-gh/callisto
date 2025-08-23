@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEPG } from "../context/EPGContext";
+import { EpisodeMeta } from "@/app/lib/types";
 
 const ChannelGuide = () => {
 	const {
 		channels,
 		currentChannelIndex,
-		enrichedCache,
 		runtimeTracker,
-		setCurrentChannelIndex
+		setCurrentChannelIndex,
+		tmdbCache
 	} = useEPG();
 
 	const contentContainerRefs = useRef<(HTMLDivElement | null)[]>([
@@ -108,7 +109,7 @@ const ChannelGuide = () => {
 					key={channelIndex}
 				>
 					<div className="bg-slate-700 flex items-center justify-center rounded text-center w-1/5">
-						{channel.channelName}
+						{channel.name}
 					</div>
 					<div
 						className="flex gap-2 no-scrollbar overflow-x-auto w-4/5"
@@ -121,47 +122,43 @@ const ChannelGuide = () => {
 						}}
 						style={{ scrollbarWidth: "none" }}
 					>
-						{channel.data.map((content, contentIndex: number) => {
-							const c =
-								enrichedCache[
-									content.episode?.ids.tmdb ||
-										content.ids?.tmdb ||
-										content.movie?.ids.tmdb ||
-										content.show.ids.tmdb
-								];
-							const remainingRuntime =
-								runtimeTracker.get(c?.id) || c?.runtime;
-							const contentPixelWidth = remainingRuntime
-								? (remainingRuntime / 120) * containerWidth
-								: containerWidth / 4;
+						{channel.programs.map(
+							(program, programIndex: number) => {
+								const meta = tmdbCache.get(program.tmdb)
+								const remainingRuntime =
+									meta?.runtime
+								const programPixelWidth = remainingRuntime
+									? (remainingRuntime / 120) * containerWidth
+									: containerWidth / 4;
 
-							return (
-								<div
-									className="bg-slate-700 flex flex-col flex-shrink-0 justify-center p-2 rounded text-xl"
-									key={contentIndex}
-									style={{
-										width: `${contentPixelWidth}px`
-									}}
-								>
-									<p className="truncate">{c?.title}</p>
-									{c?.type === "tv" && (
-										<p className="text-sm truncate">
-											S
-											{String(c.seasonNumber).padStart(
-												2,
-												"0"
-											)}
-											E
-											{String(c.episodeNumber).padStart(
-												2,
-												"0"
-											)}
-											: {c.episodeName}
+								return (
+									<div
+										className="bg-slate-700 flex flex-col flex-shrink-0 justify-center p-2 rounded text-xl"
+										key={programIndex}
+										style={{
+											width: `${programPixelWidth}px`
+										}}
+									>
+										<p className="truncate">
+											{program.title}
 										</p>
-									)}
-								</div>
-							);
-						})}
+										{program.kind === "tv" && (
+											<p className="text-sm truncate">
+												S
+												{String(
+													(meta as EpisodeMeta)?.seasonNumber
+												).padStart(2, "0")}
+												E
+												{String(
+													(meta as EpisodeMeta)?.episodeNumber
+												).padStart(2, "0")}
+												: {(meta as EpisodeMeta)?.name}
+											</p>
+										)}
+									</div>
+								);
+							}
+						)}
 					</div>
 				</div>
 			))}

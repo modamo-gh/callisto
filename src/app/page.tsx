@@ -3,32 +3,12 @@
 import { Orbitron } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Credentials, DeviceCode, Tokens } from "./lib/types";
 
 const orbitron = Orbitron({
 	subsets: ["latin"],
 	weight: ["400", "700", "900"]
 });
-
-type Credentials = {
-	client_id: string;
-	client_secret: string;
-};
-
-type DeviceCode = {
-	device_code: string;
-	user_code: string;
-	interval: number;
-	expires_in: number;
-	verification_url: string;
-	direct_verification_url: string;
-};
-
-type Tokens = {
-	access_token: string;
-	expires_in: number;
-	refresh_token?: string;
-	token_type: string;
-};
 
 const Home = () => {
 	const approvedRef = useRef(false);
