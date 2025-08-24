@@ -2,7 +2,7 @@
 
 import { Poppins } from "next/font/google";
 import { useEffect } from "react";
-import { EPGClientProps } from "../lib/types";
+import { EPGClientProps, Episode, Show } from "../lib/types";
 import ChannelGuide from "./components/ChannelGuide";
 import InfoPane from "./components/InfoPane";
 import TimeMarkers from "./components/TimeMarkers";
@@ -12,8 +12,19 @@ import { EPGProvider, useEPG } from "./context/EPGContext";
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const EPGContent = () => {
-	const { channels, currentChannelIndex, getProgramMeta, tmdbCache } =
-		useEPG();
+	const {
+		channels,
+		currentChannelIndex,
+		episodeMetaCache,
+		fetchEpisodeTMDB,
+		getEpisodeMeta,
+		getMovieMeta,
+		getProgramMeta,
+		getShowMeta,
+		movieMetaCache,
+		programMetaCache,
+		showMetaCache
+	} = useEPG();
 
 	useEffect(() => {
 		const viewableChannels = [
@@ -30,56 +41,81 @@ const EPGContent = () => {
 			for (let i = 0; i < channel.programs.length; i++) {
 				const program = channel.programs[i];
 
-				if (!tmdbCache.has(program.tmdb)) {
-					getProgramMeta(i, program);
+				switch (program.kind) {
+					case "movie":
+						if (!movieMetaCache.has(program.tmdb)) {
+							getMovieMeta(i, program);
+						}
+
+						break;
+					case "episode":
+						if (!episodeMetaCache.has(program.tmdb)) {
+							getEpisodeMeta(i, program as Episode);
+						}
+
+						break;
+					case "tv":
+						if (!showMetaCache.has(program.tmdb)) {
+							getShowMeta(i, program as Show)
+								.then(() => {
+									if (!(program as Show).episodeTMDB) {
+										fetchEpisodeTMDB(program as Show)
+											.then((episodeID) => {
+												if (episodeID) {
+													(
+														program as Show
+													).episodeTMDB = episodeID;
+												}
+											})
+											.catch((error) =>
+												console.error(
+													"Error fetching episode TMDB:",
+													error
+												)
+											);
+									}
+								})
+								.catch((error) =>
+									console.error(
+										"Error fetching show meta:",
+										error
+									)
+								);
+						} else if (!(program as Show).episodeTMDB) {
+							if (!(program as Show).episodeTMDB) {
+								fetchEpisodeTMDB(program as Show)
+									.then((episodeID) => {
+										if (episodeID) {
+											(program as Show).episodeTMDB =
+												episodeID;
+										}
+									})
+									.catch((error) =>
+										console.error(
+											"Error fetching episode TMDB:",
+											error
+										)
+									);
+							}
+						}
+
+						break;
 				}
-
-				// if (hasBeenEnriched.has(`${viewableChannel.name}`)) {
-				// 	continue;
-				// }
-
-				// for (let i = 0; i < viewableChannel.programs.length; i++) {
-				// 	const id = `${Date.now()}-${Math.random()
-				// 		.toString(36)
-				// 		.substring(2, 9)}`;
-
-				// 	const program = viewableChannel.programs[i];
-
-				// 	let basicContent: EnrichedContent;
-
-				// 	if (viewableChannel.type === "movies") {
-				// 		basicContent = {
-				// 			id,
-				// 			title: program.title,
-				// 			tmdb: program.tmdb,
-				// 			type: "movie"
-				// 		};
-				// 	} else {
-				// 		basicContent = {
-				// 			episodeName: program.episode?.title,
-				// 			episodeNumber: program.episode?.number,
-				// 			episodeTMDBID: program.episode?.ids.tmdb,
-				// 			id,
-				// 			seasonNumber: program.episode?.season,
-				// 			title: program.show?.title || program.title,
-				// 			tmdb: program.tmdb,
-				// 			type: "tv"
-				// 		};
-				// 	}
-
-				// 	enrichContent(basicContent, i === 0);
-				// }
-
-				// setHasBeenEnriched(() => {
-				// 	const set = new Set<string>(hasBeenEnriched);
-
-				// 	set.add(`${viewableChannel.name}`);
-
-				// 	return set;
-				// });
 			}
 		}
-	}, [channels, currentChannelIndex, getProgramMeta, tmdbCache]);
+	}, [
+		channels,
+		currentChannelIndex,
+		episodeMetaCache,
+		fetchEpisodeTMDB,
+		getEpisodeMeta,
+		getMovieMeta,
+		getProgramMeta,
+		getShowMeta,
+		movieMetaCache,
+		programMetaCache,
+		showMetaCache
+	]);
 
 	return (
 		<div

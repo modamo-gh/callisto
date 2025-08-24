@@ -1,11 +1,11 @@
 import {
 	Channels,
-	EnrichedContent,
 	EPGContextType,
 	Episode,
 	EpisodeMeta,
 	Program,
-	ProgramMeta
+	ProgramMeta,
+	Show
 } from "@/app/lib/types";
 import {
 	createContext,
@@ -31,10 +31,31 @@ export const EPGProvider: React.FC<{
 
 	const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
 	const [currentRDLink, setCurrentRDLink] = useState<string | null>(null);
+	const [episodeTMDBCache, setEpisodeTMDBCache] = useState<
+		Map<number, EpisodeMeta>
+	>(new Map());
+	const [episodeMetaCache, setEpisodeMetaCache] = useState<
+		Map<number, EpisodeMeta>
+	>(new Map());
 	const [runtimeTracker, setRuntimeTracker] = useState<Map<string, number>>(
 		new Map()
 	);
-	const [tmdbCache, setTMDBCache] = useState<
+	const [programMetaCache, setProgramMetaCache] = useState<
+		Map<number, EpisodeMeta | ProgramMeta>
+	>(new Map());
+	const [movieMetaCache, setMovieMetaCache] = useState<
+		Map<number, ProgramMeta>
+	>(new Map());
+	const [movieTMDBCache, setMovieTMDBCache] = useState<Map<number, any>>(
+		new Map()
+	);
+	const [programTMDBCache, setProgramTMDBCache] = useState<Map<number, any>>(
+		new Map()
+	);
+	const [showTMDBCache, setShowTMDBCache] = useState<Map<number, any>>(
+		new Map()
+	);
+	const [showMetaCache, setShowMetaCache] = useState<
 		Map<number, EpisodeMeta | ProgramMeta>
 	>(new Map());
 
@@ -258,29 +279,199 @@ export const EPGProvider: React.FC<{
 		}
 	}, [currentChannelIndex, channels, streamingLinks]);
 
-	const getProgramMeta = useCallback(
-		async (index: number, program: Program) => {
-			if (tmdbCache.has(program.tmdb)) {
-				return;
-			}
-
+	const getEpisode = useCallback(
+		async (program: Episode | Program, showData: any) => {
 			try {
-				const response = await fetch(
-					`https://api.themoviedb.org/3/${program.kind}/${program.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-				);
+				let season = (program as Episode).seasonNumber || null;
 
-				if (!response.ok) {
-					throw new Error("Failed to fetch TMDB details");
+				if (!season) {
+					const seasons = showData.seasons.filter(
+						(s: any) => s.season_number > 0
+					);
+					season =
+						seasons[Math.floor(Math.random() * seasons.length)]
+							?.season_number || 1;
 				}
 
-				const tmdbData = await response.json();
+				const seasonResponse = await fetch(
+					`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				);
 
-				let meta: EpisodeMeta | ProgramMeta;
+				if (!seasonResponse.ok) {
+					throw new Error("Failed to fetch season details");
+				}
+
+				const seasonInfo = await seasonResponse.json();
+
+				let episode =
+					seasonInfo[(program as Episode).episodeNumber] || null;
+
+				if (!episode && seasonInfo.episodes?.length > 0) {
+					const releasedEpisodes = seasonInfo.episodes.filter(
+						(e: any) => new Date(e.air_date) <= new Date()
+					);
+
+					episode =
+						releasedEpisodes[
+							Math.floor(Math.random() * releasedEpisodes.length)
+						] || seasonInfo.episodes[0];
+				}
+
+				return episode;
+			} catch (error) {
+				console.error("Error fetching episode:", error);
+				return null;
+			}
+		},
+		[]
+	);
+
+	const getEpisodeMeta = useCallback(
+		async (index: number, episode: Episode) => {
+			try {
+				let tmdbData;
+
+				if (episodeTMDBCache.has(episode.episodeTMDB)) {
+					tmdbData = episodeTMDBCache.get(episode.episodeTMDB);
+				} else {
+					const response = await fetch(
+						`https://api.themoviedb.org/3/tv/${episode.tmdb}/season/${episode.season}/episode/${episode.number}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+					);
+
+					if (!response.ok) {
+						throw new Error("Failed to fetch episode TMDB details");
+					}
+
+					tmdbData = await response.json();
+
+					setEpisodeTMDBCache((prev) => {
+						const tmdbCache = new Map(prev);
+
+						tmdbCache.set(episode.tmdb, tmdbData);
+
+						return tmdbCache;
+					});
+				}
+
+				if (episodeMetaCache.has(episode.tmdb)) {
+					return;
+				}
+
+				const meta: EpisodeMeta = {
+					overview: tmdbData.overview,
+					releaseDate: tmdbData.air_date,
+					runtime: tmdbData.runtime
+				};
+
+				setEpisodeMetaCache((prev) => {
+					const mc = new Map(prev);
+
+					mc.set(episode.tmdb, meta);
+
+					return mc;
+				});
+			} catch (error) {
+				console.error("Error fetching episode TMDB details:", error);
+			}
+		},
+		[episodeMetaCache, episodeTMDBCache]
+	);
+
+	const getMovieMeta = useCallback(
+		async (index: number, program: Program) => {
+			try {
+				let tmdbData;
+
+				if (movieTMDBCache.has(program.tmdb)) {
+					tmdbData = movieTMDBCache.get(program.tmdb);
+				} else {
+					const response = await fetch(
+						`https://api.themoviedb.org/3/movie/${program.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+					);
+
+					if (!response.ok) {
+						throw new Error("Failed to fetch movie TMDB details");
+					}
+
+					tmdbData = await response.json();
+
+					setMovieTMDBCache((prev) => {
+						const tmdbCache = new Map(prev);
+
+						tmdbCache.set(program.tmdb, tmdbData);
+
+						return tmdbCache;
+					});
+				}
+
+				if (movieMetaCache.has(program.tmdb)) {
+					return;
+				}
+
+				const meta: ProgramMeta = {
+					genres: tmdbData.genres.map((genre: any) => genre.name),
+					overview: tmdbData.overview,
+					releaseDate:
+						tmdbData.release_date || tmdbData.first_air_date,
+					runtime: tmdbData.runtime
+				};
+
+				setMovieMetaCache((prev) => {
+					const mc = new Map(prev);
+
+					mc.set(program.tmdb, meta);
+
+					return mc;
+				});
+			} catch (error) {
+				console.error("Error fetching movie TMDB details:", error);
+			}
+		},
+		[movieMetaCache, movieTMDBCache]
+	);
+
+	const getProgramMeta = useCallback(
+		async (index: number, program: Program) => {
+			try {
+				let tmdbData;
+
+				if (programTMDBCache.has(program.tmdb)) {
+					tmdbData = programTMDBCache.get(program.tmdb);
+				} else {
+					const response = await fetch(
+						`https://api.themoviedb.org/3/${program.kind}/${program.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+					);
+
+					if (!response.ok) {
+						throw new Error("Failed to fetch TMDB details");
+					}
+
+					tmdbData = await response.json();
+
+					setProgramTMDBCache((prev) => {
+						const tmdbCache = new Map(prev);
+
+						tmdbCache.set(program.tmdb, tmdbData);
+
+						return tmdbCache;
+					});
+				}
+
+				if (
+					programMetaCache.has(program.tmdb) &&
+					program.kind === "movie"
+				) {
+					return;
+				}
 
 				if (program.kind === "tv") {
 					const episode = await getEpisode(program, tmdbData);
 
-					meta = {
+					if (episodeMetaCache.has(episode.tmdb)) {
+						return;
+					}
+
+					const meta: EpisodeMeta = {
 						episodeNumber: episode?.episode_number,
 						genres: tmdbData.genres.map((genre: any) => genre.name),
 						name: episode?.name,
@@ -292,23 +483,31 @@ export const EPGProvider: React.FC<{
 							30,
 						seasonNumber: episode?.season_number
 					};
+
+					setEpisodeMetaCache((prev) => {
+						const mc = new Map(prev);
+
+						mc.set(episode.tmdb, meta);
+
+						return mc;
+					});
 				} else {
-					meta = {
+					const meta: ProgramMeta = {
 						genres: tmdbData.genres.map((genre: any) => genre.name),
 						overview: tmdbData.overview,
 						releaseDate:
 							tmdbData.release_date || tmdbData.first_air_date,
 						runtime: tmdbData.runtime
 					};
+
+					setProgramMetaCache((prev) => {
+						const mc = new Map(prev);
+
+						mc.set(program.tmdb, meta);
+
+						return mc;
+					});
 				}
-
-				setTMDBCache((prev) => {
-					const tc = new Map(prev);
-
-					tc.set(program.tmdb, meta);
-
-					return tc;
-				});
 
 				// if (isFirstInChannel) {
 				// 	setRuntimeTracker((prev) => {
@@ -348,24 +547,57 @@ export const EPGProvider: React.FC<{
 				console.error("Error fetching TMDB details:", error);
 			}
 		},
-		[tmdbCache] // Added searchContent dependency
+		[getEpisode, programMetaCache, programTMDBCache]
 	);
 
-	const getEpisode = useCallback(async (program: Episode, showData: any) => {
-		try {
-			let season = null;
+	const getShowMeta = useCallback(
+		async (index: number, show: Show) => {
+			try {
+				let tmdbData;
 
-			if (!season) {
-				const seasons = showData.seasons.filter(
-					(s: any) => s.season_number > 0
-				);
-				season =
-					seasons[Math.floor(Math.random() * seasons.length)]
-						?.season_number || 1;
+				if (showTMDBCache.has(show.tmdb)) {
+					tmdbData = showTMDBCache.get(show.tmdb);
+				} else {
+					const response = await fetch(
+						`https://api.themoviedb.org/3/tv/${show.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+					);
+
+					if (!response.ok) {
+						throw new Error("Failed to fetch episode TMDB details");
+					}
+
+					tmdbData = await response.json();
+
+					setShowTMDBCache((prev) => {
+						const tmdbCache = new Map(prev);
+
+						tmdbCache.set(show.tmdb, tmdbData);
+
+						return tmdbCache;
+					});
+				}
+			} catch (error) {
+				console.error("Error fetching episode TMDB details:", error);
 			}
+		},
+		[showTMDBCache]
+	);
+
+	const fetchEpisodeTMDB = useCallback(async (show: Show) => {
+		try {
+			const tmdbData = showTMDBCache.get(show.tmdb);
+
+			console.log("TMDB", tmdbData)
+
+			const seasons = tmdbData?.seasons.filter(
+				(s: any) => s.season_number > 0
+			);
+			const season =
+				seasons[Math.floor(Math.random() * seasons?.length)]
+					?.season_number || 1;
 
 			const seasonResponse = await fetch(
-				`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+				`https://api.themoviedb.org/3/tv/${show.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
 			);
 
 			if (!seasonResponse.ok) {
@@ -374,37 +606,61 @@ export const EPGProvider: React.FC<{
 
 			const seasonInfo = await seasonResponse.json();
 
-			let episode = null;
-
-			if (!episode && seasonInfo.episodes?.length > 0) {
+			if (seasonInfo.episodes?.length > 0) {
 				const releasedEpisodes = seasonInfo.episodes.filter(
 					(e: any) => new Date(e.air_date) <= new Date()
 				);
 
-				episode =
+				const episode =
 					releasedEpisodes[
 						Math.floor(Math.random() * releasedEpisodes.length)
 					] || seasonInfo.episodes[0];
-			}
 
-			return episode;
+				const meta: EpisodeMeta = {
+					episodeNumber: episode.episode_number,
+					episodeTitle: episode.name,
+					overview: episode.overview,
+					releaseDate: episode.air_date,
+					runtime: episode.runtime,
+					season: episode.season_number
+				};
+
+				setEpisodeMetaCache((prev) => {
+					const mc = new Map(prev);
+
+					mc.set(episode.id, meta);
+
+					return mc;
+				});
+
+				return episode.id;
+			}
 		} catch (error) {
 			console.error("Error fetching episode:", error);
 			return null;
 		}
-	}, []);
+	}, [showTMDBCache]);
 
 	const value: EPGContextType = {
 		channels,
 		currentChannelIndex,
 		currentRDLink,
+		episodeMetaCache,
+		episodeTMDBCache,
+		fetchEpisodeTMDB,
+		getEpisodeMeta,
+		getMovieMeta,
 		getProgramMeta,
+		getShowMeta,
+		movieMetaCache,
+		programMetaCache,
+		programTMDBCache,
 		runtimeTracker,
 		streamingLinks,
 		setCurrentChannelIndex,
 		setCurrentRDLink,
 		setRuntimeTracker,
-		tmdbCache
+		showMetaCache
 	};
 
 	return <EPGContext.Provider value={value}>{children}</EPGContext.Provider>;

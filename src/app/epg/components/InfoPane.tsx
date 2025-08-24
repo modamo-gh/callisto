@@ -1,29 +1,60 @@
+import { Episode, EpisodeMeta, Program, ProgramMeta } from "@/app/lib/types";
 import { useEPG } from "../context/EPGContext";
 
 const InfoPane = () => {
-	const { channels, currentChannelIndex, tmdbCache } = useEPG();
+	const {
+		channels,
+		currentChannelIndex,
+		episodeMetaCache,
+		movieMetaCache,
+		programMetaCache
+	} = useEPG();
 
 	const program = channels[currentChannelIndex].programs[0];
-	const meta = tmdbCache.get(program.tmdb);
+
+	const getProgramMeta = (
+		program: Episode | Program | Show
+	): EpisodeMeta | ProgramMeta => {
+		switch (program.kind) {
+			case "episode":
+				return episodeMetaCache.get(program.tmdb);
+			case "tv":
+				const show = program as Show;
+
+				if (show.episodeTMDB) {
+					return episodeMetaCache.get(show.episodeTMDB);
+				}
+
+				return null;
+			case "movie":
+				return movieMetaCache.get(program.tmdb);
+		}
+	};
+
+	const meta = getProgramMeta(program);
 
 	return (
 		<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
 			<h1 className="text-4xl font-bold">{program.title}</h1>
-			{/* {enrichedCurrentContent?.type === "tv" && (
+			{program.kind !== "movie" && (
 				<h2 className="text-2xl font-semibold">
-					S
-					{String(enrichedCurrentContent.seasonNumber).padStart(
-						2,
-						"0"
-					)}
-					E
-					{String(enrichedCurrentContent.episodeNumber).padStart(
-						2,
-						"0"
-					)}
-					: {enrichedCurrentContent.episodeName}
+					{program.kind === "episode"
+						? `S${String((program as Episode)?.season).padStart(
+								2,
+								"0"
+						  )}E
+					${String((program as Episode)?.number).padStart(2, "0")}: ${
+								(program as Episode)?.episodeTitle
+						  }`
+						: `S${String((meta as EpisodeMeta)?.season).padStart(
+								2,
+								"0"
+						  )}E
+					${String((meta as EpisodeMeta)?.episodeNumber).padStart(2, "0")}: ${
+								(meta as EpisodeMeta)?.episodeTitle
+						  }`}
 				</h2>
-			)} */}
+			)}
 			<div className="flex flex-wrap gap-2 uppercase text-slate-300">
 				{meta?.genres &&
 					meta.genres.map((genre, index: number) => (

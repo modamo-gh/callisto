@@ -1,14 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEPG } from "../context/EPGContext";
-import { EpisodeMeta } from "@/app/lib/types";
+import {
+	Episode,
+	EpisodeMeta,
+	Program,
+	ProgramMeta,
+	Show
+} from "@/app/lib/types";
 
 const ChannelGuide = () => {
 	const {
 		channels,
 		currentChannelIndex,
+		episodeMetaCache,
+		episodeTMDBCache,
+		getMovieMeta,
+		movieMetaCache,
+		programTMDBCache,
 		runtimeTracker,
-		setCurrentChannelIndex,
-		tmdbCache
+		setCurrentChannelIndex
 	} = useEPG();
 
 	const contentContainerRefs = useRef<(HTMLDivElement | null)[]>([
@@ -93,6 +103,25 @@ const ChannelGuide = () => {
 		setCurrentChannelIndex
 	]);
 
+	const getProgramMeta = (
+		program: Episode | Program | Show
+	): EpisodeMeta | ProgramMeta => {
+		switch (program.kind) {
+			case "episode":
+				return episodeMetaCache.get(program.tmdb);
+			case "tv":
+				const show = program as Show;
+
+				if (show.episodeTMDB) {
+					return episodeMetaCache.get(show.episodeTMDB);
+				}
+
+				return null;
+			case "movie":
+				return movieMetaCache.get(program.tmdb);
+		}
+	};
+
 	return (
 		<div className="flex flex-col flex-1 gap-2 w-full">
 			{[
@@ -124,9 +153,8 @@ const ChannelGuide = () => {
 					>
 						{channel.programs.map(
 							(program, programIndex: number) => {
-								const meta = tmdbCache.get(program.tmdb)
-								const remainingRuntime =
-									meta?.runtime
+								const meta = getProgramMeta(program);
+								const remainingRuntime = meta?.runtime;
 								const programPixelWidth = remainingRuntime
 									? (remainingRuntime / 120) * containerWidth
 									: containerWidth / 4;
@@ -142,17 +170,40 @@ const ChannelGuide = () => {
 										<p className="truncate">
 											{program.title}
 										</p>
+										{program.kind === "episode" && (
+											<p className="text-sm truncate">
+												S
+												{String(
+													(program as Episode).season
+												).padStart(2, "0")}
+												E
+												{String(
+													(program as Episode).number
+												).padStart(2, "0")}
+												:{" "}
+												{
+													(program as Episode)
+														.episodeTitle
+												}
+											</p>
+										)}
 										{program.kind === "tv" && (
 											<p className="text-sm truncate">
 												S
 												{String(
-													(meta as EpisodeMeta)?.seasonNumber
+													(meta as EpisodeMeta)
+														?.season
 												).padStart(2, "0")}
 												E
 												{String(
-													(meta as EpisodeMeta)?.episodeNumber
+													(meta as EpisodeMeta)
+														?.episodeNumber
 												).padStart(2, "0")}
-												: {(meta as EpisodeMeta)?.name}
+												:{" "}
+												{
+													(meta as EpisodeMeta)
+														?.episodeTitle
+												}
 											</p>
 										)}
 									</div>

@@ -1,15 +1,8 @@
 import { Dispatch, SetStateAction } from "react";
 
-export type BasicContent = {
-	id: string;
-	title: string;
-	tmdbID: number;
-	type: "movie" | "tv";
-};
-
 export type Channel = {
 	name: string;
-	programs: Program[];
+	programs: (Episode | Program | Show)[];
 };
 
 export type Channels = Channel[];
@@ -28,17 +21,6 @@ export type DeviceCode = {
 	direct_verification_url: string;
 };
 
-export interface EnrichedContent extends BasicContent {
-	episodeName?: string;
-	episodeNumber?: number;
-	episodeTMDBID?: number;
-	genres?: string[];
-	overview?: string;
-	releaseDate?: string;
-	runtime?: number;
-	seasonNumber?: number;
-}
-
 export type EPGClientProps = {
 	channels: Channels;
 };
@@ -47,38 +29,54 @@ export type EPGContextType = {
 	channels: Channels;
 	currentChannelIndex: number;
 	currentRDLink: string | null;
+	episodeMetaCache: Map<number, EpisodeMeta>;
+	episodeTMDBCache: Map<number, EpisodeMeta>;
+	fetchEpisodeTMDB: (show: Show) => Promise<any>;
+	getEpisodeMeta: (index: number, episode: Episode) => Promise<void>;
+	getMovieMeta: (index: number, program: Program) => Promise<void>;
 	getProgramMeta: (index: number, program: Program) => Promise<void>;
+	getShowMeta: (index: number, show: Show) => Promise<void>;
+	movieMetaCache: Map<number, ProgramMeta>;
+	programMetaCache: Map<number, ProgramMeta | EpisodeMeta>;
+	programTMDBCache: Map<number, any>;
 	runtimeTracker: Map<string, number>;
 	streamingLinks: Map<string, any>;
 	setCurrentChannelIndex: Dispatch<SetStateAction<number>>;
 	setCurrentRDLink: Dispatch<SetStateAction<string | null>>;
 	setRuntimeTracker: Dispatch<SetStateAction<Map<string, number>>>;
-	tmdbCache: Map<number, EpisodeMeta | ProgramMeta>;
+	showMetaCache: Map<number, ProgramMeta>;
 };
 
-export type Episode = Program & {};
+export type Episode = Program & {
+	episodeTitle: string;
+	episodeTMDB: number;
+	number: number;
+	season: number;
+};
 
 export type EpisodeMeta = ProgramMeta & {
-	episodeNumber: number;
-	name: string;
-	seasonNumber: string;
+	episodeNumber?: number;
+	episodeTitle?: string;
+	season?: number;
 };
-
-export type Movie = Program & {};
 
 export type Program = {
 	id: string;
-	kind: "movie" | "tv";
+	kind: ProgramKind;
 	title: string;
 	tmdb: number;
 };
 
+export type ProgramKind = "episode" | "movie" | "tv";
+
 export type ProgramMeta = {
-	genres: string[];
+	genres?: string[];
 	overview: string;
 	releaseDate: string;
 	runtime: number;
 };
+
+export type Show = Program & { episodeTMDB: null | number };
 
 export type Tokens = {
 	access_token: string;
