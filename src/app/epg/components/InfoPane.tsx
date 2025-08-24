@@ -1,35 +1,11 @@
-import { Episode, EpisodeMeta, Program, ProgramMeta } from "@/app/lib/types";
+import { Episode, EpisodeMeta } from "@/app/lib/types";
 import { useEPG } from "../context/EPGContext";
 
 const InfoPane = () => {
-	const {
-		channels,
-		currentChannelIndex,
-		episodeMetaCache,
-		movieMetaCache,
-		programMetaCache
-	} = useEPG();
+	const { channels, currentChannelIndex, getProgramMeta } =
+		useEPG();
 
 	const program = channels[currentChannelIndex].programs[0];
-
-	const getProgramMeta = (
-		program: Episode | Program | Show
-	): EpisodeMeta | ProgramMeta => {
-		switch (program.kind) {
-			case "episode":
-				return episodeMetaCache.get(program.tmdb);
-			case "tv":
-				const show = program as Show;
-
-				if (show.episodeTMDB) {
-					return episodeMetaCache.get(show.episodeTMDB);
-				}
-
-				return null;
-			case "movie":
-				return movieMetaCache.get(program.tmdb);
-		}
-	};
 
 	const meta = getProgramMeta(program);
 

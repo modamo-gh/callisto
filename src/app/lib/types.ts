@@ -30,15 +30,17 @@ export type EPGContextType = {
 	currentChannelIndex: number;
 	currentRDLink: string | null;
 	episodeMetaCache: Map<number, EpisodeMeta>;
-	episodeTMDBCache: Map<number, EpisodeMeta>;
+	episodeTMDBCache: Map<number, any>;
+	ensureProgramMeta: (program: Episode | Program | Show) => Promise<void>;
 	fetchEpisodeTMDB: (show: Show) => Promise<any>;
-	getEpisodeMeta: (index: number, episode: Episode) => Promise<void>;
-	getMovieMeta: (index: number, program: Program) => Promise<void>;
-	getProgramMeta: (index: number, program: Program) => Promise<void>;
-	getShowMeta: (index: number, show: Show) => Promise<void>;
+	fetchEpisodeMeta: (index: number, episode: Episode) => Promise<EpisodeMeta>;
+	fetchMovieMeta: (index: number, program: Program) => Promise<ProgramMeta>;
+	fetchMovieTMDB: (index: number, program: Program) => Promise<any>;
+	getProgramMeta: (
+		program: Episode | Program | Show
+	) => EpisodeMeta | ProgramMeta | null;
+	fetchShowTMDB: (index: number, show: Show) => Promise<any>;
 	movieMetaCache: Map<number, ProgramMeta>;
-	programMetaCache: Map<number, ProgramMeta | EpisodeMeta>;
-	programTMDBCache: Map<number, any>;
 	runtimeTracker: Map<string, number>;
 	streamingLinks: Map<string, any>;
 	setCurrentChannelIndex: Dispatch<SetStateAction<number>>;

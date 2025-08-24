@@ -19,9 +19,6 @@ import {
 
 const EPGContext = createContext<EPGContextType | undefined>(undefined);
 
-// Helper function
-const pad2 = (num: number) => String(num).padStart(2, "0");
-
 export const EPGProvider: React.FC<{
 	children: ReactNode;
 	channels: Channels;
@@ -31,17 +28,11 @@ export const EPGProvider: React.FC<{
 
 	const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
 	const [currentRDLink, setCurrentRDLink] = useState<string | null>(null);
-	const [episodeTMDBCache, setEpisodeTMDBCache] = useState<
-		Map<number, EpisodeMeta>
-	>(new Map());
-	const [episodeMetaCache, setEpisodeMetaCache] = useState<
-		Map<number, EpisodeMeta>
-	>(new Map());
-	const [runtimeTracker, setRuntimeTracker] = useState<Map<string, number>>(
+	const [episodeTMDBCache, setEpisodeTMDBCache] = useState<Map<number, any>>(
 		new Map()
 	);
-	const [programMetaCache, setProgramMetaCache] = useState<
-		Map<number, EpisodeMeta | ProgramMeta>
+	const [episodeMetaCache, setEpisodeMetaCache] = useState<
+		Map<number, EpisodeMeta>
 	>(new Map());
 	const [movieMetaCache, setMovieMetaCache] = useState<
 		Map<number, ProgramMeta>
@@ -49,7 +40,7 @@ export const EPGProvider: React.FC<{
 	const [movieTMDBCache, setMovieTMDBCache] = useState<Map<number, any>>(
 		new Map()
 	);
-	const [programTMDBCache, setProgramTMDBCache] = useState<Map<number, any>>(
+	const [runtimeTracker, setRuntimeTracker] = useState<Map<string, number>>(
 		new Map()
 	);
 	const [showTMDBCache, setShowTMDBCache] = useState<Map<number, any>>(
@@ -143,199 +134,152 @@ export const EPGProvider: React.FC<{
 		isProcessingQueue.current = false;
 	}, []);
 
-	// Function to search for content using Snowfl with rate limiting and retry logic
-	const searchContent = useCallback(
-		async (content: EnrichedContent) => {
-			return new Promise<any>((resolve) => {
-				// Define searchQuery outside so it's accessible in catch block
-				let searchQuery = "";
+	// // Function to search for content using Snowfl with rate limiting and retry logic
+	// const searchContent = useCallback(
+	// 	async (content: EnrichedContent) => {
+	// 		return new Promise<any>((resolve) => {
+	// 			// Define searchQuery outside so it's accessible in catch block
+	// 			let searchQuery = "";
 
-				if (content.type === "movie") {
-					searchQuery = content.title;
-				} else {
-					// For TV shows, include season and episode info
-					searchQuery = `${content.title} S${pad2(
-						content.seasonNumber || 1
-					)}E${pad2(content.episodeNumber || 1)}`;
-				}
+	// 			if (content.type === "movie") {
+	// 				searchQuery = content.title;
+	// 			} else {
+	// 				// For TV shows, include season and episode info
+	// 				searchQuery = `${content.title} S${pad2(
+	// 					content.seasonNumber || 1
+	// 				)}E${pad2(content.episodeNumber || 1)}`;
+	// 			}
 
-				const makeRequest = async () => {
-					// Check if we already have cached results
-					if (streamingLinks.has(content.id)) {
-						resolve(streamingLinks.get(content.id));
-						return;
-					}
+	// 			const makeRequest = async () => {
+	// 				// Check if we already have cached results
+	// 				if (streamingLinks.has(content.id)) {
+	// 					resolve(streamingLinks.get(content.id));
+	// 					return;
+	// 				}
 
-					try {
-						const params = new URLSearchParams({
-							prefix: process.env.NEXT_PUBLIC_SNOWFL_PREFIX || "",
-							q: searchQuery,
-							session: sessionRef.current,
-							page: "0",
-							sort: "NONE",
-							top: "NONE",
-							nsfw: "1"
-						});
+	// 				try {
+	// 					const params = new URLSearchParams({
+	// 						prefix: process.env.NEXT_PUBLIC_SNOWFL_PREFIX || "",
+	// 						q: searchQuery,
+	// 						session: sessionRef.current,
+	// 						page: "0",
+	// 						sort: "NONE",
+	// 						top: "NONE",
+	// 						nsfw: "1"
+	// 					});
 
-						console.log(`Searching Snowfl for: "${searchQuery}"`);
+	// 					console.log(`Searching Snowfl for: "${searchQuery}"`);
 
-						const response = await fetch(
-							`/api/snowfl?${params.toString()}`,
-							{
-								signal: AbortSignal.timeout(10000) // 10 second timeout
-							}
-						);
+	// 					const response = await fetch(
+	// 						`/api/snowfl?${params.toString()}`,
+	// 						{
+	// 							signal: AbortSignal.timeout(10000) // 10 second timeout
+	// 						}
+	// 					);
 
-						if (response.ok) {
-							const data = await response.json();
-							console.log(
-								`✅ Snowfl found ${
-									data?.length || 0
-								} results for "${searchQuery}"`
-							);
+	// 					if (response.ok) {
+	// 						const data = await response.json();
+	// 						console.log(
+	// 							`✅ Snowfl found ${
+	// 								data?.length || 0
+	// 							} results for "${searchQuery}"`
+	// 						);
 
-							// Store the streaming links for this content
-							if (data && data.length > 0) {
-								setStreamingLinks((prev) => {
-									const newLinks = new Map(prev);
-									newLinks.set(content.id, data);
-									return newLinks;
-								});
-								resolve(data);
-							} else {
-								resolve(null);
-							}
-						} else if (response.status === 503) {
-							console.warn(
-								`⚠️ Snowfl 503 (Service Unavailable) for "${searchQuery}" - will retry later`
-							);
-							resolve(null);
-						} else {
-							const errorText = await response
-								.text()
-								.catch(() => "Unknown error");
-							console.error(
-								`❌ Snowfl search failed (${response.status}):`,
-								errorText
-							);
-							resolve(null);
-						}
-					} catch (error: any) {
-						if (error.name === "TimeoutError") {
-							console.warn(
-								`⏰ Snowfl search timeout for "${searchQuery}"`
-							);
-						} else {
-							console.error(
-								`❌ Error searching content for "${searchQuery}":`,
-								error
-							);
-						}
-						resolve(null);
-					}
-				};
+	// 						// Store the streaming links for this content
+	// 						if (data && data.length > 0) {
+	// 							setStreamingLinks((prev) => {
+	// 								const newLinks = new Map(prev);
+	// 								newLinks.set(content.id, data);
+	// 								return newLinks;
+	// 							});
+	// 							resolve(data);
+	// 						} else {
+	// 							resolve(null);
+	// 						}
+	// 					} else if (response.status === 503) {
+	// 						console.warn(
+	// 							`⚠️ Snowfl 503 (Service Unavailable) for "${searchQuery}" - will retry later`
+	// 						);
+	// 						resolve(null);
+	// 					} else {
+	// 						const errorText = await response
+	// 							.text()
+	// 							.catch(() => "Unknown error");
+	// 						console.error(
+	// 							`❌ Snowfl search failed (${response.status}):`,
+	// 							errorText
+	// 						);
+	// 						resolve(null);
+	// 					}
+	// 				} catch (error: any) {
+	// 					if (error.name === "TimeoutError") {
+	// 						console.warn(
+	// 							`⏰ Snowfl search timeout for "${searchQuery}"`
+	// 						);
+	// 					} else {
+	// 						console.error(
+	// 							`❌ Error searching content for "${searchQuery}":`,
+	// 							error
+	// 						);
+	// 					}
+	// 					resolve(null);
+	// 				}
+	// 			};
 
-				requestQueue.current.push(makeRequest);
-				processQueue();
-			});
-		},
-		[processQueue]
-	);
+	// 			requestQueue.current.push(makeRequest);
+	// 			processQueue();
+	// 		});
+	// 	},
+	// 	[processQueue]
+	// );
 
 	// Effect to update current content and RD link when channel changes
-	useEffect(() => {
-		const getCurrentContent = () => {
-			const currentChannel = channels[currentChannelIndex];
-			if (
-				!currentChannel ||
-				!currentChannel.data ||
-				currentChannel.data.length === 0
-			) {
-				return null;
-			}
+	// useEffect(() => {
+	// 	const getCurrentContent = () => {
+	// 		const currentChannel = channels[currentChannelIndex];
+	// 		if (
+	// 			!currentChannel ||
+	// 			!currentChannel.data ||
+	// 			currentChannel.data.length === 0
+	// 		) {
+	// 			return null;
+	// 		}
 
-			const content = currentChannel.data[0];
-			const tmdbKey =
-				content.episode?.ids.tmdb ||
-				content.ids?.tmdb ||
-				content.movie?.ids.tmdb ||
-				content.show?.ids.tmdb;
+	// 		const content = currentChannel.data[0];
+	// 		const tmdbKey =
+	// 			content.episode?.ids.tmdb ||
+	// 			content.ids?.tmdb ||
+	// 			content.movie?.ids.tmdb ||
+	// 			content.show?.ids.tmdb;
 
-			return enrichedCache[tmdbKey];
-		};
+	// 		return enrichedCache[tmdbKey];
+	// 	};
 
-		const currentEnrichedContent = getCurrentContent();
+	// 	const currentEnrichedContent = getCurrentContent();
 
-		if (currentEnrichedContent) {
-			setCurrentContent(currentEnrichedContent);
+	// 	if (currentEnrichedContent) {
+	// 		setCurrentContent(currentEnrichedContent);
 
-			// Get preloaded streaming links
-			const links = streamingLinks.get(currentEnrichedContent.id);
-			if (links && links.length > 0) {
-				setCurrentRDLink(links[0]?.link || null);
-			} else {
-				setCurrentRDLink(null);
-			}
-		}
-	}, [currentChannelIndex, channels, streamingLinks]);
+	// 		// Get preloaded streaming links
+	// 		const links = streamingLinks.get(currentEnrichedContent.id);
+	// 		if (links && links.length > 0) {
+	// 			setCurrentRDLink(links[0]?.link || null);
+	// 		} else {
+	// 			setCurrentRDLink(null);
+	// 		}
+	// 	}
+	// }, [currentChannelIndex, channels, streamingLinks]);
 
-	const getEpisode = useCallback(
-		async (program: Episode | Program, showData: any) => {
-			try {
-				let season = (program as Episode).seasonNumber || null;
-
-				if (!season) {
-					const seasons = showData.seasons.filter(
-						(s: any) => s.season_number > 0
-					);
-					season =
-						seasons[Math.floor(Math.random() * seasons.length)]
-							?.season_number || 1;
-				}
-
-				const seasonResponse = await fetch(
-					`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-				);
-
-				if (!seasonResponse.ok) {
-					throw new Error("Failed to fetch season details");
-				}
-
-				const seasonInfo = await seasonResponse.json();
-
-				let episode =
-					seasonInfo[(program as Episode).episodeNumber] || null;
-
-				if (!episode && seasonInfo.episodes?.length > 0) {
-					const releasedEpisodes = seasonInfo.episodes.filter(
-						(e: any) => new Date(e.air_date) <= new Date()
-					);
-
-					episode =
-						releasedEpisodes[
-							Math.floor(Math.random() * releasedEpisodes.length)
-						] || seasonInfo.episodes[0];
-				}
-
-				return episode;
-			} catch (error) {
-				console.error("Error fetching episode:", error);
-				return null;
-			}
-		},
-		[]
-	);
-
-	const getEpisodeMeta = useCallback(
-		async (index: number, episode: Episode) => {
+	const fetchShowTMDB = useCallback(
+		async (index: number, show: Show) => {
 			try {
 				let tmdbData;
 
-				if (episodeTMDBCache.has(episode.episodeTMDB)) {
-					tmdbData = episodeTMDBCache.get(episode.episodeTMDB);
+				if (showTMDBCache.has(show.tmdb)) {
+					return showTMDBCache.get(show.tmdb);
 				} else {
 					const response = await fetch(
-						`https://api.themoviedb.org/3/tv/${episode.tmdb}/season/${episode.season}/episode/${episode.number}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+						`https://api.themoviedb.org/3/tv/${show.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
 					);
 
 					if (!response.ok) {
@@ -344,40 +288,206 @@ export const EPGProvider: React.FC<{
 
 					tmdbData = await response.json();
 
-					setEpisodeTMDBCache((prev) => {
+					setShowTMDBCache((prev) => {
 						const tmdbCache = new Map(prev);
 
-						tmdbCache.set(episode.tmdb, tmdbData);
+						tmdbCache.set(show.tmdb, tmdbData);
 
 						return tmdbCache;
 					});
+
+					return tmdbData;
+				}
+			} catch (error) {
+				console.error("Error fetching episode TMDB details:", error);
+
+				return null;
+			}
+		},
+		[showTMDBCache]
+	);
+
+	const fetchEpisodeTMDB = useCallback(
+		async (program: Episode | Show) => {
+			try {
+				if (program.kind === "episode") {
+					const episodeProgram = program as Episode;
+
+					let tmdbData;
+
+					if (episodeTMDBCache.has(episodeProgram.episodeTMDB)) {
+						return episodeTMDBCache.get(episodeProgram.episodeTMDB);
+					} else {
+						const response = await fetch(
+							`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${episodeProgram.season}/episode/${episodeProgram.number}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+						);
+
+						if (!response.ok) {
+							throw new Error(
+								"Failed to fetch episode TMDB details"
+							);
+						}
+
+						tmdbData = await response.json();
+
+						setEpisodeTMDBCache((prev) => {
+							const tmdbCache = new Map(prev);
+
+							tmdbCache.set(episodeProgram.episodeTMDB, tmdbData);
+
+							return tmdbCache;
+						});
+
+						return tmdbData;
+					}
+				} else {
+					if (
+						program.episodeTMDB &&
+						episodeTMDBCache.has(program.episodeTMDB)
+					) {
+						return episodeTMDBCache.get(program.episodeTMDB);
+					}
+
+					if (!program.episodeTMDB) {
+						let tmdbData = showTMDBCache.get(program.tmdb);
+
+						if (!tmdbData) {
+							tmdbData = await fetchShowTMDB(0, program);
+						}
+
+						if (!tmdbData) {
+							throw new Error("Could not fetch show data");
+						}
+
+						const seasons = tmdbData?.seasons.filter(
+							(s: any) => s.season_number > 0
+						);
+						const season =
+							seasons[Math.floor(Math.random() * seasons?.length)]
+								?.season_number || 1;
+						const seasonResponse = await fetch(
+							`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+						);
+
+						if (!seasonResponse.ok) {
+							throw new Error("Failed to fetch season details");
+						}
+
+						const seasonInfo = await seasonResponse.json();
+
+						if (seasonInfo.episodes?.length > 0) {
+							const releasedEpisodes = seasonInfo.episodes.filter(
+								(e: any) => new Date(e.air_date) <= new Date()
+							);
+
+							const episode =
+								releasedEpisodes[
+									Math.floor(
+										Math.random() * releasedEpisodes.length
+									)
+								] || seasonInfo.episodes[0];
+
+							const episodeResponse = await fetch(
+								`https://api.themoviedb.org/3/tv/${program.tmdb}/season/${season}/episode/${episode.episode_number}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+							);
+
+							const episodeTMDB = await episodeResponse.json();
+
+							setEpisodeTMDBCache((prev) => {
+								const tmdbCache = new Map(prev);
+
+								tmdbCache.set(episode.id, episodeTMDB);
+
+								return tmdbCache;
+							});
+
+							program.episodeTMDB = episode.id;
+
+							return episodeTMDB;
+						}
+					} else {
+						console.warn(
+							"Program has episodeTMDB but it's not in cache",
+							program
+						);
+
+						return null;
+					}
 				}
 
-				if (episodeMetaCache.has(episode.tmdb)) {
-					return;
+				return null;
+			} catch (error) {
+				console.error("Error fetching episode:", error);
+			}
+		},
+		[episodeTMDBCache, fetchShowTMDB, showTMDBCache]
+	);
+
+	const fetchEpisodeMeta = useCallback(
+		async (index: number, program: Episode | Show) => {
+			try {
+				if (
+					program.episodeTMDB &&
+					episodeMetaCache.has(program.episodeTMDB)
+				) {
+					return episodeMetaCache.get(program.episodeTMDB);
+				}
+
+				let tmdbData;
+
+				if (
+					program.episodeTMDB &&
+					episodeMetaCache.has(program.episodeTMDB)
+				) {
+					tmdbData = episodeTMDBCache.get(program.episodeTMDB!);
+				} else {
+					tmdbData = await fetchEpisodeTMDB(program);
+				}
+
+				if (!tmdbData) {
+					console.error("Could not fetch TMDB data for episode", {
+						title: program.title,
+						kind: program.kind,
+						tmdb: program.tmdb,
+						episodeTMDB: program.episodeTMDB
+					});
+					return null;
 				}
 
 				const meta: EpisodeMeta = {
-					overview: tmdbData.overview,
-					releaseDate: tmdbData.air_date,
-					runtime: tmdbData.runtime
+					episodeNumber: tmdbData.episode_number,
+					episodeTitle: tmdbData.name,
+					overview: tmdbData?.overview,
+					releaseDate: tmdbData?.air_date,
+					runtime: tmdbData?.runtime,
+					season: tmdbData.season_number
 				};
 
-				setEpisodeMetaCache((prev) => {
-					const mc = new Map(prev);
+				if (program.episodeTMDB) {
+					setEpisodeMetaCache((prev) => {
+						const mc = new Map(prev);
 
-					mc.set(episode.tmdb, meta);
+						mc.set(program.episodeTMDB!, meta);
 
-					return mc;
-				});
+						return mc;
+					});
+				} else {
+					console.error(
+						"No episodeTMDB available after fetchEpisodeTMDB",
+						program
+					);
+					return null;
+				}
+
+				return meta;
 			} catch (error) {
 				console.error("Error fetching episode TMDB details:", error);
 			}
 		},
-		[episodeMetaCache, episodeTMDBCache]
+		[episodeMetaCache, episodeTMDBCache, fetchEpisodeTMDB]
 	);
 
-	const getMovieMeta = useCallback(
+	const fetchMovieTMDB = useCallback(
 		async (index: number, program: Program) => {
 			try {
 				let tmdbData;
@@ -404,242 +514,101 @@ export const EPGProvider: React.FC<{
 					});
 				}
 
-				if (movieMetaCache.has(program.tmdb)) {
-					return;
-				}
-
-				const meta: ProgramMeta = {
-					genres: tmdbData.genres.map((genre: any) => genre.name),
-					overview: tmdbData.overview,
-					releaseDate:
-						tmdbData.release_date || tmdbData.first_air_date,
-					runtime: tmdbData.runtime
-				};
-
-				setMovieMetaCache((prev) => {
-					const mc = new Map(prev);
-
-					mc.set(program.tmdb, meta);
-
-					return mc;
-				});
+				return tmdbData;
 			} catch (error) {
 				console.error("Error fetching movie TMDB details:", error);
 			}
 		},
-		[movieMetaCache, movieTMDBCache]
+		[movieTMDBCache]
+	);
+
+	const fetchMovieMeta = useCallback(
+		async (index: number, program: Program) => {
+			let tmdbData;
+
+			if (movieMetaCache.has(program.tmdb)) {
+				tmdbData = movieMetaCache.get(program.tmdb);
+			} else {
+				tmdbData = await fetchMovieTMDB(0, program);
+			}
+
+			const meta: ProgramMeta = {
+				genres: tmdbData.genres.map((genre: any) => genre.name),
+				overview: tmdbData.overview,
+				releaseDate: tmdbData.release_date || tmdbData.first_air_date,
+				runtime: tmdbData.runtime
+			};
+
+			setMovieMetaCache((prev) => {
+				const mc = new Map(prev);
+
+				mc.set(program.tmdb, meta);
+
+				return mc;
+			});
+
+			return meta;
+		},
+		[fetchMovieTMDB, movieMetaCache]
+	);
+
+	const ensureProgramMeta = useCallback(
+		async (program: Episode | Program | Show) => {
+			switch (program.kind) {
+				case "episode":
+					const episode = program as Episode;
+
+					if (!episodeMetaCache.has(episode.episodeTMDB!)) {
+						await fetchEpisodeMeta(0, episode).catch(console.error);
+					}
+
+					break;
+				case "tv":
+					const show = program as Show;
+
+					if (
+						show.episodeTMDB &&
+						episodeMetaCache.has(show.episodeTMDB)
+					) {
+						break;
+					}
+
+					await fetchEpisodeMeta(0, show).catch(console.error);
+
+					break;
+				case "movie":
+					if (!movieMetaCache.has(program.tmdb)) {
+						await fetchMovieMeta(0, program).catch(console.error);
+					}
+
+					break;
+			}
+		},
+		[episodeMetaCache, fetchEpisodeMeta, fetchMovieMeta, movieMetaCache]
 	);
 
 	const getProgramMeta = useCallback(
-		async (index: number, program: Program) => {
-			try {
-				let tmdbData;
-
-				if (programTMDBCache.has(program.tmdb)) {
-					tmdbData = programTMDBCache.get(program.tmdb);
-				} else {
-					const response = await fetch(
-						`https://api.themoviedb.org/3/${program.kind}/${program.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+		(
+			program: Episode | Program | Show
+		): EpisodeMeta | ProgramMeta | null => {
+			switch (program.kind) {
+				case "episode":
+					return (
+						episodeMetaCache.get(
+							(program as Episode).episodeTMDB!
+						) || null
 					);
-
-					if (!response.ok) {
-						throw new Error("Failed to fetch TMDB details");
-					}
-
-					tmdbData = await response.json();
-
-					setProgramTMDBCache((prev) => {
-						const tmdbCache = new Map(prev);
-
-						tmdbCache.set(program.tmdb, tmdbData);
-
-						return tmdbCache;
-					});
-				}
-
-				if (
-					programMetaCache.has(program.tmdb) &&
-					program.kind === "movie"
-				) {
-					return;
-				}
-
-				if (program.kind === "tv") {
-					const episode = await getEpisode(program, tmdbData);
-
-					if (episodeMetaCache.has(episode.tmdb)) {
-						return;
-					}
-
-					const meta: EpisodeMeta = {
-						episodeNumber: episode?.episode_number,
-						genres: tmdbData.genres.map((genre: any) => genre.name),
-						name: episode?.name,
-						overview: episode?.overview || tmdbData.overview,
-						releaseDate: episode?.air_date || tmdbData.release_date,
-						runtime:
-							episode?.runtime ||
-							tmdbData.episode_run_time?.[0] ||
-							30,
-						seasonNumber: episode?.season_number
-					};
-
-					setEpisodeMetaCache((prev) => {
-						const mc = new Map(prev);
-
-						mc.set(episode.tmdb, meta);
-
-						return mc;
-					});
-				} else {
-					const meta: ProgramMeta = {
-						genres: tmdbData.genres.map((genre: any) => genre.name),
-						overview: tmdbData.overview,
-						releaseDate:
-							tmdbData.release_date || tmdbData.first_air_date,
-						runtime: tmdbData.runtime
-					};
-
-					setProgramMetaCache((prev) => {
-						const mc = new Map(prev);
-
-						mc.set(program.tmdb, meta);
-
-						return mc;
-					});
-				}
-
-				// if (isFirstInChannel) {
-				// 	setRuntimeTracker((prev) => {
-				// 		const rT = new Map(prev);
-
-				// 		rT.set(basicContent.id, enrichedContent.runtime || 30);
-
-				// 		return rT;
-				// 	});
-				// }
-
-				// Store enriched content first
-				// setEnrichedCache((prev) => ({
-				// 	...prev,
-				// 	[basicContent.type === "movie" ||
-				// 	!basicContent.episodeTMDBID
-				// 		? basicContent.tmdbID
-				// 		: basicContent.episodeTMDBID]: enrichedContent
-				// }));
-
-				// // Then search for streaming links (preload strategy) - non-blocking
-				// searchContent(enrichedContent)
-				// 	.then((results) => {
-				// 		if (results) {
-				// 			console.log(
-				// 				`🎬 Preloaded streaming links for: ${enrichedContent.title}`
-				// 			);
-				// 		}
-				// 	})
-				// 	.catch((error) =>
-				// 		console.error(
-				// 			"Error preloading streaming links:",
-				// 			error
-				// 		)
-				// 	);
-			} catch (error) {
-				console.error("Error fetching TMDB details:", error);
+				case "tv":
+					return (
+						episodeMetaCache.get((program as Show).episodeTMDB!) ||
+						null
+					);
+				case "movie":
+					return movieMetaCache.get(program.tmdb) || null;
 			}
 		},
-		[getEpisode, programMetaCache, programTMDBCache]
+		[episodeMetaCache, movieMetaCache]
 	);
-
-	const getShowMeta = useCallback(
-		async (index: number, show: Show) => {
-			try {
-				let tmdbData;
-
-				if (showTMDBCache.has(show.tmdb)) {
-					tmdbData = showTMDBCache.get(show.tmdb);
-				} else {
-					const response = await fetch(
-						`https://api.themoviedb.org/3/tv/${show.tmdb}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-					);
-
-					if (!response.ok) {
-						throw new Error("Failed to fetch episode TMDB details");
-					}
-
-					tmdbData = await response.json();
-
-					setShowTMDBCache((prev) => {
-						const tmdbCache = new Map(prev);
-
-						tmdbCache.set(show.tmdb, tmdbData);
-
-						return tmdbCache;
-					});
-				}
-			} catch (error) {
-				console.error("Error fetching episode TMDB details:", error);
-			}
-		},
-		[showTMDBCache]
-	);
-
-	const fetchEpisodeTMDB = useCallback(async (show: Show) => {
-		try {
-			const tmdbData = showTMDBCache.get(show.tmdb);
-
-			console.log("TMDB", tmdbData)
-
-			const seasons = tmdbData?.seasons.filter(
-				(s: any) => s.season_number > 0
-			);
-			const season =
-				seasons[Math.floor(Math.random() * seasons?.length)]
-					?.season_number || 1;
-
-			const seasonResponse = await fetch(
-				`https://api.themoviedb.org/3/tv/${show.tmdb}/season/${season}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
-			);
-
-			if (!seasonResponse.ok) {
-				throw new Error("Failed to fetch season details");
-			}
-
-			const seasonInfo = await seasonResponse.json();
-
-			if (seasonInfo.episodes?.length > 0) {
-				const releasedEpisodes = seasonInfo.episodes.filter(
-					(e: any) => new Date(e.air_date) <= new Date()
-				);
-
-				const episode =
-					releasedEpisodes[
-						Math.floor(Math.random() * releasedEpisodes.length)
-					] || seasonInfo.episodes[0];
-
-				const meta: EpisodeMeta = {
-					episodeNumber: episode.episode_number,
-					episodeTitle: episode.name,
-					overview: episode.overview,
-					releaseDate: episode.air_date,
-					runtime: episode.runtime,
-					season: episode.season_number
-				};
-
-				setEpisodeMetaCache((prev) => {
-					const mc = new Map(prev);
-
-					mc.set(episode.id, meta);
-
-					return mc;
-				});
-
-				return episode.id;
-			}
-		} catch (error) {
-			console.error("Error fetching episode:", error);
-			return null;
-		}
-	}, [showTMDBCache]);
 
 	const value: EPGContextType = {
 		channels,
@@ -647,14 +616,14 @@ export const EPGProvider: React.FC<{
 		currentRDLink,
 		episodeMetaCache,
 		episodeTMDBCache,
+		ensureProgramMeta,
 		fetchEpisodeTMDB,
-		getEpisodeMeta,
-		getMovieMeta,
+		fetchEpisodeMeta,
+		fetchMovieMeta,
+		fetchMovieTMDB,
 		getProgramMeta,
-		getShowMeta,
+		fetchShowTMDB,
 		movieMetaCache,
-		programMetaCache,
-		programTMDBCache,
 		runtimeTracker,
 		streamingLinks,
 		setCurrentChannelIndex,

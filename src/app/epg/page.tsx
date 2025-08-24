@@ -67,8 +67,8 @@ const EPG = async () => {
 		}
 	};
 
-	const shuffleChannel = (programs: Episode | Program | Show[]) => {
-		const p = [...programs];
+	const shuffle = (h: Channels | (Episode | Program | Show)[]) => {
+		const p = [...h];
 
 		for (let i = p.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
@@ -76,53 +76,53 @@ const EPG = async () => {
 			[p[i], p[j]] = [p[j], p[i]];
 		}
 
-		return p;
+		return (h[0] as Channel).name ? (p as Channels) : (p as (Episode | Program | Show)[]);
 	};
 
-	const channels: Channels = [
+	const channels: Channels = shuffle([
 		{
 			name: "Weekend Box Office",
-			programs: shuffleChannel(
+			programs: shuffle(
 				boxOffice.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Week's Most Played Movies",
-			programs: shuffleChannel(
+			programs: shuffle(
 				mostPlayedMovies.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Most Popular Movies",
-			programs: shuffleChannel(
+			programs: shuffle(
 				popularMovies.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Trending Movies 24 HRs",
-			programs: shuffleChannel(
+			programs: shuffle(
 				trendingMovies.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Trending Shows 24 HRs",
-			programs: shuffleChannel(
+			programs: shuffle(
 				trendingShows.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Recently Watched",
-			programs: shuffleChannel(
+			programs: shuffle(
 				recentlyWatched.map((program) => formatProgram(program))
 			)
 		},
 		{
 			name: "Recommendations",
-			programs: shuffleChannel(
+			programs: shuffle(
 				recommendations.map((program) => formatProgram(program))
 			)
 		}
-	];
+	]);
 
 	return <EPGClient channels={channels} />;
 };

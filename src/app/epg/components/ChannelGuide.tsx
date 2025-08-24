@@ -1,23 +1,13 @@
+import { Episode, EpisodeMeta } from "@/app/lib/types";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEPG } from "../context/EPGContext";
-import {
-	Episode,
-	EpisodeMeta,
-	Program,
-	ProgramMeta,
-	Show
-} from "@/app/lib/types";
 
 const ChannelGuide = () => {
 	const {
 		channels,
 		currentChannelIndex,
-		episodeMetaCache,
-		episodeTMDBCache,
-		getMovieMeta,
-		movieMetaCache,
-		programTMDBCache,
-		runtimeTracker,
+		ensureProgramMeta,
+		getProgramMeta,
 		setCurrentChannelIndex
 	} = useEPG();
 
@@ -96,31 +86,25 @@ const ChannelGuide = () => {
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [
-		channels.length,
-		containerWidth,
-		currentChannelIndex,
-		setCurrentChannelIndex
-	]);
+	});
 
-	const getProgramMeta = (
-		program: Episode | Program | Show
-	): EpisodeMeta | ProgramMeta => {
-		switch (program.kind) {
-			case "episode":
-				return episodeMetaCache.get(program.tmdb);
-			case "tv":
-				const show = program as Show;
-
-				if (show.episodeTMDB) {
-					return episodeMetaCache.get(show.episodeTMDB);
+	useEffect(() => {
+		const fetchMeta = async () => {
+			const channelsToProcess = [
+				channels[currentChannelIndex - 1 < 0 ? channels.length - 1 : currentChannelIndex - 1],
+				channels[currentChannelIndex],
+				channels[(currentChannelIndex + 1) % channels.length]
+			];
+	
+			for (const channel of channelsToProcess) {
+				for (const program of channel.programs) {
+					await ensureProgramMeta(program);
 				}
-
-				return null;
-			case "movie":
-				return movieMetaCache.get(program.tmdb);
-		}
-	};
+			}
+		};
+	
+		fetchMeta();
+	}, [channels, currentChannelIndex, ensureProgramMeta]);
 
 	return (
 		<div className="flex flex-col flex-1 gap-2 w-full">

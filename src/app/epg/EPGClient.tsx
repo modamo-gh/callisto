@@ -17,12 +17,11 @@ const EPGContent = () => {
 		currentChannelIndex,
 		episodeMetaCache,
 		fetchEpisodeTMDB,
-		getEpisodeMeta,
-		getMovieMeta,
+		fetchEpisodeMeta,
+		fetchMovieMeta,
 		getProgramMeta,
-		getShowMeta,
+		fetchShowTMDB,
 		movieMetaCache,
-		programMetaCache,
 		showMetaCache
 	} = useEPG();
 
@@ -44,27 +43,30 @@ const EPGContent = () => {
 				switch (program.kind) {
 					case "movie":
 						if (!movieMetaCache.has(program.tmdb)) {
-							getMovieMeta(i, program);
+							fetchMovieMeta(i, program);
 						}
 
 						break;
 					case "episode":
-						if (!episodeMetaCache.has(program.tmdb)) {
-							getEpisodeMeta(i, program as Episode);
+						const episode = program as Episode;
+
+						if (!episodeMetaCache.has(episode.episodeTMDB)) {
+							fetchEpisodeMeta(i, episode);
 						}
 
 						break;
 					case "tv":
+						const show = program as Show;
+
 						if (!showMetaCache.has(program.tmdb)) {
-							getShowMeta(i, program as Show)
+							fetchShowTMDB(i, show)
 								.then(() => {
-									if (!(program as Show).episodeTMDB) {
-										fetchEpisodeTMDB(program as Show)
-											.then((episodeID) => {
-												if (episodeID) {
-													(
-														program as Show
-													).episodeTMDB = episodeID;
+									if (!show.episodeTMDB) {
+										fetchEpisodeTMDB(show)
+											.then((episodeTMDB) => {
+												if (episodeTMDB) {
+													show.episodeTMDB =
+														episodeTMDB.id;
 												}
 											})
 											.catch((error) =>
@@ -81,13 +83,12 @@ const EPGContent = () => {
 										error
 									)
 								);
-						} else if (!(program as Show).episodeTMDB) {
-							if (!(program as Show).episodeTMDB) {
-								fetchEpisodeTMDB(program as Show)
-									.then((episodeID) => {
-										if (episodeID) {
-											(program as Show).episodeTMDB =
-												episodeID;
+						} else if (!show.episodeTMDB) {
+							if (!show.episodeTMDB) {
+								fetchEpisodeTMDB(show)
+									.then((episodeTMDB) => {
+										if (episodeTMDB) {
+											show.episodeTMDB = episodeTMDB.id;
 										}
 									})
 									.catch((error) =>
@@ -107,13 +108,12 @@ const EPGContent = () => {
 		channels,
 		currentChannelIndex,
 		episodeMetaCache,
+		fetchEpisodeMeta,
 		fetchEpisodeTMDB,
-		getEpisodeMeta,
-		getMovieMeta,
+		fetchMovieMeta,
+		fetchShowTMDB,
 		getProgramMeta,
-		getShowMeta,
 		movieMetaCache,
-		programMetaCache,
 		showMetaCache
 	]);
 
