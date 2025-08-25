@@ -139,7 +139,11 @@ const Home = () => {
 			const tokens = (await r.json()) as Tokens;
 
 			setRDTokens(tokens);
-			localStorage.setItem("rd_tokens", JSON.stringify(tokens));
+
+			localStorage.setItem(
+				"rd_auth",
+				JSON.stringify({ credentials: rdCredentials, tokens: tokens })
+			);
 		})();
 	}, [rdCredentials, rdDevice]);
 
@@ -158,10 +162,13 @@ const Home = () => {
 
 		checkTraktAuth();
 
-		const savedRDTokens = localStorage.getItem("rd_tokens");
+		const savedRDAuth = localStorage.getItem("rd_auth");
 
-		if (savedRDTokens) {
-			setRDTokens(JSON.parse(savedRDTokens));
+		if (savedRDAuth) {
+			const { credentials, tokens } = JSON.parse(savedRDAuth);
+
+			setRDCredentials(credentials);
+			setRDTokens(tokens);
 		}
 	}, []);
 

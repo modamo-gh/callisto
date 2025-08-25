@@ -55,9 +55,9 @@ export const EPGProvider: React.FC<{
 			return null;
 		}
 
-		const tokens = localStorage.getItem("rd_tokens");
+		const auth = localStorage.getItem("rd_auth");
 
-		return tokens ? JSON.parse(tokens) : null;
+		return auth ? JSON.parse(auth).tokens : null;
 	}, []);
 
 	const extractHashFromMagnet = useCallback(
@@ -71,7 +71,7 @@ export const EPGProvider: React.FC<{
 
 	const checkRDAvailability = useCallback(
 		async (magnets: string[]) => {
-			const tokens = getRDTokens();
+			const {tokens} = getRDTokens();
 
 			if (!tokens?.access_token) {
 				return {};
@@ -109,7 +109,7 @@ export const EPGProvider: React.FC<{
 
 	const getUnrestrictedLink = useCallback(
 		async (magnet: string) => {
-			const tokens = getRDTokens();
+			const {tokens} = getRDTokens();
 
 			if (!tokens?.access_token) {
 				return null;
