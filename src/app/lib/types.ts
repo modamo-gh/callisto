@@ -79,7 +79,7 @@ export type ProgramKind = "episode" | "movie" | "tv";
 
 export type ProgramMeta = {
 	genres?: string[];
-	link?: string;
+	link?: string | null;
 	overview: string;
 	releaseDate: string;
 	runtime: number;

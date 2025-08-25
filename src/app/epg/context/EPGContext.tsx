@@ -50,6 +50,93 @@ export const EPGProvider: React.FC<{
 		Map<number, EpisodeMeta | ProgramMeta>
 	>(new Map());
 
+	const getRDTokens = useCallback(() => {
+		if (typeof window === "undefined") {
+			return null;
+		}
+
+		const tokens = localStorage.getItem("rd_tokens");
+
+		return tokens ? JSON.parse(tokens) : null;
+	}, []);
+
+	const extractHashFromMagnet = useCallback(
+		(magnet: string): string | null => {
+			const match = magnet.match(/btih:([a-f0-9]{40})/i);
+
+			return match ? match[1].toLowerCase() : null;
+		},
+		[]
+	);
+
+	const checkRDAvailability = useCallback(
+		async (magnets: string[]) => {
+			const tokens = getRDTokens();
+
+			if (!tokens?.access_token) {
+				return {};
+			}
+
+			const hashes = magnets
+				.map(extractHashFromMagnet)
+				.filter(Boolean) as string[];
+
+			if (!hashes.length) {
+				return {};
+			}
+
+			try {
+				const response = await fetch("/api/rd/instant-availability", {
+					body: JSON.stringify({
+						access_token: tokens.access_token,
+						hashes
+					}),
+					headers: { "Content-Type": "application/json" },
+					method: "POST"
+				});
+
+				if (response.ok) {
+					return await response.json();
+				}
+			} catch (error) {
+				console.error("Error checking RD availability:", error);
+			}
+
+			return {};
+		},
+		[extractHashFromMagnet, getRDTokens]
+	);
+
+	const getUnrestrictedLink = useCallback(
+		async (magnet: string) => {
+			const tokens = getRDTokens();
+
+			if (!tokens?.access_token) {
+				return null;
+			}
+
+			try {
+				const response = await fetch("/api/rd/unrestrict", {
+					body: JSON.stringify({
+						access_token: tokens.access_token,
+						link: magnet
+					}),
+					headers: { "Content-Type": "application/json" },
+					method: "POST"
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+
+					return data.download;
+				}
+			} catch (error) {
+				console.error("Error getting unrestricted link:", error);
+			}
+		},
+		[getRDTokens]
+	);
+
 	useEffect(() => {
 		const updateRuntimes = () => {
 			setRuntimeTracker((prev) => {
@@ -92,183 +179,6 @@ export const EPGProvider: React.FC<{
 			.slice(0, 8)
 			.toUpperCase()
 	);
-
-	// Store streaming links for each content
-	const [streamingLinks, setStreamingLinks] = useState<Map<string, any>>(
-		new Map()
-	);
-
-	// Rate limiting for Snowfl requests
-	const requestQueue = useRef<Array<() => Promise<void>>>([]);
-	const isProcessingQueue = useRef(false);
-	const lastRequestTime = useRef(0);
-	const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
-
-	const processQueue = useCallback(async () => {
-		if (isProcessingQueue.current || requestQueue.current.length === 0) {
-			return;
-		}
-
-		isProcessingQueue.current = true;
-
-		while (requestQueue.current.length > 0) {
-			const now = Date.now();
-			const timeSinceLastRequest = now - lastRequestTime.current;
-
-			if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-				await new Promise((resolve) =>
-					setTimeout(
-						resolve,
-						MIN_REQUEST_INTERVAL - timeSinceLastRequest
-					)
-				);
-			}
-
-			const request = requestQueue.current.shift();
-			if (request) {
-				lastRequestTime.current = Date.now();
-				await request();
-			}
-		}
-
-		isProcessingQueue.current = false;
-	}, []);
-
-	// // Function to search for content using Snowfl with rate limiting and retry logic
-	// const searchContent = useCallback(
-	// 	async (content: EnrichedContent) => {
-	// 		return new Promise<any>((resolve) => {
-	// 			// Define searchQuery outside so it's accessible in catch block
-	// 			let searchQuery = "";
-
-	// 			if (content.type === "movie") {
-	// 				searchQuery = content.title;
-	// 			} else {
-	// 				// For TV shows, include season and episode info
-	// 				searchQuery = `${content.title} S${pad2(
-	// 					content.seasonNumber || 1
-	// 				)}E${pad2(content.episodeNumber || 1)}`;
-	// 			}
-
-	// 			const makeRequest = async () => {
-	// 				// Check if we already have cached results
-	// 				if (streamingLinks.has(content.id)) {
-	// 					resolve(streamingLinks.get(content.id));
-	// 					return;
-	// 				}
-
-	// 				try {
-	// 					const params = new URLSearchParams({
-	// 						prefix: process.env.NEXT_PUBLIC_SNOWFL_PREFIX || "",
-	// 						q: searchQuery,
-	// 						session: sessionRef.current,
-	// 						page: "0",
-	// 						sort: "NONE",
-	// 						top: "NONE",
-	// 						nsfw: "1"
-	// 					});
-
-	// 					console.log(`Searching Snowfl for: "${searchQuery}"`);
-
-	// 					const response = await fetch(
-	// 						`/api/snowfl?${params.toString()}`,
-	// 						{
-	// 							signal: AbortSignal.timeout(10000) // 10 second timeout
-	// 						}
-	// 					);
-
-	// 					if (response.ok) {
-	// 						const data = await response.json();
-	// 						console.log(
-	// 							`✅ Snowfl found ${
-	// 								data?.length || 0
-	// 							} results for "${searchQuery}"`
-	// 						);
-
-	// 						// Store the streaming links for this content
-	// 						if (data && data.length > 0) {
-	// 							setStreamingLinks((prev) => {
-	// 								const newLinks = new Map(prev);
-	// 								newLinks.set(content.id, data);
-	// 								return newLinks;
-	// 							});
-	// 							resolve(data);
-	// 						} else {
-	// 							resolve(null);
-	// 						}
-	// 					} else if (response.status === 503) {
-	// 						console.warn(
-	// 							`⚠️ Snowfl 503 (Service Unavailable) for "${searchQuery}" - will retry later`
-	// 						);
-	// 						resolve(null);
-	// 					} else {
-	// 						const errorText = await response
-	// 							.text()
-	// 							.catch(() => "Unknown error");
-	// 						console.error(
-	// 							`❌ Snowfl search failed (${response.status}):`,
-	// 							errorText
-	// 						);
-	// 						resolve(null);
-	// 					}
-	// 				} catch (error: any) {
-	// 					if (error.name === "TimeoutError") {
-	// 						console.warn(
-	// 							`⏰ Snowfl search timeout for "${searchQuery}"`
-	// 						);
-	// 					} else {
-	// 						console.error(
-	// 							`❌ Error searching content for "${searchQuery}":`,
-	// 							error
-	// 						);
-	// 					}
-	// 					resolve(null);
-	// 				}
-	// 			};
-
-	// 			requestQueue.current.push(makeRequest);
-	// 			processQueue();
-	// 		});
-	// 	},
-	// 	[processQueue]
-	// );
-
-	// Effect to update current content and RD link when channel changes
-	// useEffect(() => {
-	// 	const getCurrentContent = () => {
-	// 		const currentChannel = channels[currentChannelIndex];
-	// 		if (
-	// 			!currentChannel ||
-	// 			!currentChannel.data ||
-	// 			currentChannel.data.length === 0
-	// 		) {
-	// 			return null;
-	// 		}
-
-	// 		const content = currentChannel.data[0];
-	// 		const tmdbKey =
-	// 			content.episode?.ids.tmdb ||
-	// 			content.ids?.tmdb ||
-	// 			content.movie?.ids.tmdb ||
-	// 			content.show?.ids.tmdb;
-
-	// 		return enrichedCache[tmdbKey];
-	// 	};
-
-	// 	const currentEnrichedContent = getCurrentContent();
-
-	// 	if (currentEnrichedContent) {
-	// 		setCurrentContent(currentEnrichedContent);
-
-	// 		// Get preloaded streaming links
-	// 		const links = streamingLinks.get(currentEnrichedContent.id);
-	// 		if (links && links.length > 0) {
-	// 			setCurrentRDLink(links[0]?.link || null);
-	// 		} else {
-	// 			setCurrentRDLink(null);
-	// 		}
-	// 	}
-	// }, [currentChannelIndex, channels, streamingLinks]);
 
 	const fetchShowTMDB = useCallback(
 		async (index: number, show: Show) => {
@@ -425,6 +335,177 @@ export const EPGProvider: React.FC<{
 		[episodeTMDBCache, fetchShowTMDB, showTMDBCache]
 	);
 
+	const fetchProgramLink = useCallback(
+		async (program: Episode | Program | Show) => {
+			await ensureProgramMeta(program);
+
+			const meta = getProgramMeta(program);
+
+			if (meta?.link) {
+				return meta?.link;
+			}
+
+			let searchQuery = "";
+
+			switch (program.kind) {
+				case "episode":
+					const episode = program as Episode;
+
+					searchQuery = `${program.title} S${String(
+						episode.season
+					).padStart(2, "0")}E${String(episode.number).padStart(
+						2,
+						"0"
+					)}`;
+
+					break;
+				case "movie":
+					searchQuery = `${program.title} ${
+						meta?.releaseDate?.split("-")[0]
+					}`;
+
+					break;
+				case "tv":
+					const episodeMeta = meta as EpisodeMeta;
+
+					searchQuery = `${program.title} S${String(
+						episodeMeta?.season || 1
+					).padStart(2, "0")}E${String(
+						episodeMeta?.episodeNumber || 1
+					).padStart(2, "0")}`;
+
+					break;
+			}
+
+			console.log(`🔍 Searching Snowfl for: "${searchQuery}"`);
+
+			try {
+				const params = new URLSearchParams({ q: searchQuery });
+				const response = await fetch(`/api/snowfl?${params}`);
+
+				if (response.ok) {
+					const results = await response.json();
+
+					console.log(`📊 Snowfl results:`, results);
+
+					if (results.data && results.data.length) {
+						const magnets = results.data
+							.map((result) => result.magnet)
+							.filter(Boolean);
+
+						if (magnets.length) {
+							console.log(
+								"🔍 Checking RD availability for magnets..."
+							);
+
+							const availability = await checkRDAvailability(
+								magnets
+							);
+
+							let cachedMagnet = null;
+							let unrestrictedLink = null;
+
+							for (const magnet of magnets) {
+								const hash = extractHashFromMagnet(magnet);
+
+								if (hash && availability[hash]) {
+									console.log(
+										`✅ Found cached torrent: ${hash}`
+									);
+
+									cachedMagnet = magnet;
+
+									unrestrictedLink =
+										await getUnrestrictedLink(magnet);
+
+									if (unrestrictedLink) {
+										console.log(
+											`🎬 Got unrestricted link!`
+										);
+
+										break;
+									}
+								}
+							}
+
+							switch (program.kind) {
+								case "movie":
+									setMovieMetaCache((prev) => {
+										const mc = new Map(prev);
+										const meta = mc.get(program.tmdb);
+
+										if (meta) {
+											mc.set(program.tmdb, {
+												...meta,
+												link: unrestrictedLink
+											});
+										}
+
+										return mc;
+									});
+
+									break;
+								case "episode":
+								case "tv":
+									const episode = program as Episode | Show;
+
+									if (episode.episodeTMDB) {
+										setEpisodeMetaCache((prev) => {
+											const mc = new Map(prev);
+											const meta = mc.get(
+												episode.episodeTMDB!
+											);
+
+											if (meta) {
+												mc.set(episode.episodeTMDB!, {
+													...meta,
+													link: unrestrictedLink
+												});
+											}
+
+											return mc;
+										});
+									}
+
+									break;
+							}
+
+							return unrestrictedLink;
+						} else {
+							console.log(
+								`❌ No results found for "${searchQuery}"`
+							);
+						}
+					} else {
+						const errorData = await response
+							.json()
+							.catch(() => ({}));
+
+						console.error(
+							`❌ Snowfl API error: ${response.status}`,
+							errorData
+						);
+
+						if (response.status === 503) {
+							console.log(
+								`⚠️ Snowfl service unavailable, skipping "${searchQuery}"`
+							);
+						}
+					}
+				}
+
+				return null;
+			} catch (error) {
+				console.error("Error fetching program link:", error);
+
+				return null;
+			}
+		},
+		[
+			checkRDAvailability, extractHashFromMagnet, getUnrestrictedLink
+		]
+	);
+
 	const fetchEpisodeMeta = useCallback(
 		async (index: number, program: Episode | Show) => {
 			try {
@@ -480,6 +561,8 @@ export const EPGProvider: React.FC<{
 					);
 					return null;
 				}
+
+				fetchProgramLink(program).catch(console.error);
 
 				return meta;
 			} catch (error) {
@@ -549,9 +632,11 @@ export const EPGProvider: React.FC<{
 				return mc;
 			});
 
+			fetchProgramLink(program).catch(console.error);
+
 			return meta;
 		},
-		[fetchMovieTMDB, movieMetaCache]
+		[fetchMovieTMDB, fetchProgramLink, movieMetaCache]
 	);
 
 	const ensureProgramMeta = useCallback(
@@ -612,131 +697,6 @@ export const EPGProvider: React.FC<{
 		[episodeMetaCache, movieMetaCache]
 	);
 
-	const fetchProgramLink = useCallback(
-		async (program: Episode | Program | Show) => {
-			await ensureProgramMeta(program);
-			const meta = getProgramMeta(program);
-
-			if (meta?.link) {
-				return meta?.link;
-			}
-
-			let searchQuery = "";
-
-			switch (program.kind) {
-				case "episode":
-					const episode = program as Episode;
-
-					searchQuery = `${program.title} S${String(
-						episode.season
-					).padStart(2, "0")}E${String(episode.number).padStart(
-						2,
-						"0"
-					)}`;
-
-					break;
-				case "movie":
-					searchQuery = `${program.title} ${
-						meta?.releaseDate?.split("-")[0]
-					}`;
-
-					break;
-				case "tv":
-					const episodeMeta = meta as EpisodeMeta;
-
-					searchQuery = `${program.title} S${String(
-						episodeMeta?.season || 1
-					).padStart(2, "0")}E${String(
-						episodeMeta?.episodeNumber || 1
-					).padStart(2, "0")}`;
-
-					break;
-			}
-
-			console.log(`🔍 Searching Snowfl for: "${searchQuery}"`);
-
-			try {
-				const params = new URLSearchParams({ q: searchQuery });
-				const response = await fetch(`/api/snowfl?${params}`);
-
-				if (response.ok) {
-					const results = await response.json();
-
-					console.log(`📊 Snowfl results:`, results);
-
-					if (results.data.length) {
-						const link = results.data[0].magnet;
-
-						console.log(`✅ Found link:`, link);
-
-						switch (program.kind) {
-							case "movie":
-								setMovieMetaCache((prev) => {
-									const mc = new Map(prev);
-									const meta = mc.get(program.tmdb);
-
-									if (meta) {
-										mc.set(program.tmdb, { ...meta, link });
-									}
-
-									return mc;
-								});
-
-								break;
-							case "episode":
-							case "tv":
-								const episode = program as Episode | Show;
-
-								if (episode.episodeTMDB) {
-									setEpisodeMetaCache((prev) => {
-										const mc = new Map(prev);
-										const meta = mc.get(
-											episode.episodeTMDB!
-										);
-
-										if (meta) {
-											mc.set(episode.episodeTMDB!, {
-												...meta,
-												link
-											});
-										}
-
-										return mc;
-									});
-								}
-
-								break;
-						}
-
-						return link;
-					} else {
-						console.log(`❌ No results found for "${searchQuery}"`);
-					}
-				} else {
-					const errorData = await response.json().catch(() => ({}));
-
-					console.error(
-						`❌ Snowfl API error: ${response.status}`,
-						errorData
-					);
-
-					if (response.status === 503) {
-						console.log(
-							`⚠️ Snowfl service unavailable, skipping "${searchQuery}"`
-						);
-					}
-				}
-
-				return null;
-			} catch (error) {
-				console.error("Error fetching program link:", error);
-
-				return null;
-			}
-		},
-		[ensureProgramMeta, getProgramMeta]
-	);
-
 	const value: EPGContextType = {
 		channels,
 		currentChannelIndex,
@@ -753,7 +713,6 @@ export const EPGProvider: React.FC<{
 		fetchShowTMDB,
 		movieMetaCache,
 		runtimeTracker,
-		streamingLinks,
 		setCurrentChannelIndex,
 		setCurrentRDLink,
 		setRuntimeTracker,
