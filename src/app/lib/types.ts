@@ -32,10 +32,16 @@ export type EPGContextType = {
 	episodeMetaCache: Map<number, EpisodeMeta>;
 	episodeTMDBCache: Map<number, any>;
 	ensureProgramMeta: (program: Episode | Program | Show) => Promise<void>;
+	fetchEpisodeMeta: (
+		index: number,
+		program: Episode | Show
+	) => Promise<EpisodeMeta | null | undefined>;
 	fetchEpisodeTMDB: (show: Show) => Promise<any>;
-	fetchEpisodeMeta: (index: number, episode: Episode) => Promise<EpisodeMeta>;
 	fetchMovieMeta: (index: number, program: Program) => Promise<ProgramMeta>;
 	fetchMovieTMDB: (index: number, program: Program) => Promise<any>;
+	fetchProgramLink: (
+		program: Episode | Program | Show
+	) => Promise<string | null>;
 	getProgramMeta: (
 		program: Episode | Program | Show
 	) => EpisodeMeta | ProgramMeta | null;
@@ -73,6 +79,7 @@ export type ProgramKind = "episode" | "movie" | "tv";
 
 export type ProgramMeta = {
 	genres?: string[];
+	link?: string;
 	overview: string;
 	releaseDate: string;
 	runtime: number;

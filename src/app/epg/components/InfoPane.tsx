@@ -1,13 +1,31 @@
 import { Episode, EpisodeMeta } from "@/app/lib/types";
 import { useEPG } from "../context/EPGContext";
+import { useEffect } from "react";
 
 const InfoPane = () => {
-	const { channels, currentChannelIndex, getProgramMeta } =
+	const { channels, currentChannelIndex, fetchProgramLink, getProgramMeta } =
 		useEPG();
 
 	const program = channels[currentChannelIndex].programs[0];
 
 	const meta = getProgramMeta(program);
+
+	useEffect(() => {
+		if (!meta || meta.link) return;
+
+		const testFetchLink = async () => {
+			console.log(`Testing fetchProgramLink for: ${program.title}`);
+			try {
+				const link = await fetchProgramLink(program);
+				console.log(`Got link:`, link);
+			} catch (error) {
+				console.error("Error fetching link:", error);
+			}
+		};
+
+		const timeoutId = setTimeout(testFetchLink, 1000);
+		return () => clearTimeout(timeoutId);
+	}, [fetchProgramLink, meta, program]);
 
 	return (
 		<div className="bg-slate-700 flex flex-col flex-1 gap-4 p-6 rounded">
