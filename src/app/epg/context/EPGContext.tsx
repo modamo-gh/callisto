@@ -337,6 +337,9 @@ export const EPGProvider: React.FC<{
 
 	const fetchProgramLink = useCallback(
 		async (index: number, program: Episode | Program | Show) => {
+			console.log(`🚫 Snowfl disabled for: "${JSON.stringify(program.tmdb)}"`);
+			return null;
+
 			await ensureProgramMeta(index, program);
 
 			const meta = getProgramMeta(program);
@@ -561,7 +564,7 @@ export const EPGProvider: React.FC<{
 				}
 
 				if (index === 0) {
-					fetchProgramLink(program).catch(console.error);
+					fetchProgramLink(index, program).catch(console.error);
 				}
 
 				return meta;
@@ -633,7 +636,7 @@ export const EPGProvider: React.FC<{
 			});
 
 			if (index === 0) {
-				fetchProgramLink(program).catch(console.error);
+				fetchProgramLink(index, program).catch(console.error);
 			}
 
 			return meta;

@@ -90,6 +90,19 @@ export type ProgramMeta = {
 
 export type Show = Program & { episodeTMDB: null | number };
 
+export type TraktProgram = {
+	ids: { tvdb: number; tmdb: number };
+	show: { ids: { tvdb: number; tmdb: number }; title: string };
+	title: string;
+	episode: {
+		title: string;
+		ids: { tmdb: number };
+		number: number;
+		season: number;
+	};
+	movie: { title: string; ids: { tmdb: number } };
+};
+
 export type Tokens = {
 	access_token: string;
 	expires_in: number;

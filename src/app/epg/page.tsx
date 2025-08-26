@@ -2,7 +2,14 @@ import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import traktRequest from "../lib/trakt";
-import { Channel, Channels, Episode, Program, Show } from "../lib/types";
+import {
+	Channel,
+	Channels,
+	Episode,
+	Program,
+	Show,
+	TraktProgram
+} from "../lib/types";
 import EPGClient from "./EPGClient";
 
 const EPG = async () => {
@@ -14,24 +21,26 @@ const EPG = async () => {
 	}
 
 	const [
-		trendingMovies,
-		popularMovies,
 		boxOffice,
 		mostPlayedMovies,
-		trendingShows,
+		popularMovies,
 		recentlyWatched,
-		recommendations
+		recommendations,
+		trendingMovies,
+		trendingShows,
+		watchlist
 	] = await Promise.all([
-		traktRequest("/movies/trending", { next: { revalidate: 300 } }),
-		traktRequest("/movies/popular", { next: { revalidate: 300 } }),
 		traktRequest("/movies/boxoffice", { next: { revalidate: 300 } }),
 		traktRequest("/movies/played/weekly", { next: { revalidate: 300 } }),
-		traktRequest("/shows/trending", { next: { revalidate: 300 } }),
+		traktRequest("/movies/popular", { next: { revalidate: 300 } }),
 		traktRequest("/users/me/history/", { cache: "no-store" }),
-		traktRequest("/recommendations/", { cache: "no-store" })
+		traktRequest("/recommendations/", { cache: "no-store" }),
+		traktRequest("/movies/trending", { next: { revalidate: 300 } }),
+		traktRequest("/shows/trending", { next: { revalidate: 300 } }),
+		traktRequest("/users/me/watchlist/", { cache: "no-store" })
 	]);
 
-	const formatProgram = (program): Episode | Program | Show => {
+	const formatProgram = (program: TraktProgram): Episode | Program | Show => {
 		if (program.ids?.tvdb || program.show?.ids?.tvdb) {
 			const show: Show = {
 				episodeTMDB: null,
@@ -85,46 +94,64 @@ const EPG = async () => {
 		{
 			name: "Weekend Box Office",
 			programs: shuffle(
-				boxOffice.map((program) => formatProgram(program))
-			)
+				boxOffice.map((program: TraktProgram) => formatProgram(program))
+			) as (Program | Episode | Show)[]
 		},
 		{
 			name: "Week's Most Played Movies",
 			programs: shuffle(
-				mostPlayedMovies.map((program) => formatProgram(program))
-			)
+				mostPlayedMovies.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
 		},
 		{
 			name: "Most Popular Movies",
 			programs: shuffle(
-				popularMovies.map((program) => formatProgram(program))
-			)
-		},
-		{
-			name: "Trending Movies 24 HRs",
-			programs: shuffle(
-				trendingMovies.map((program) => formatProgram(program))
-			)
-		},
-		{
-			name: "Trending Shows 24 HRs",
-			programs: shuffle(
-				trendingShows.map((program) => formatProgram(program))
-			)
+				popularMovies.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
 		},
 		{
 			name: "Recently Watched",
 			programs: shuffle(
-				recentlyWatched.map((program) => formatProgram(program))
-			)
+				recentlyWatched.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
 		},
 		{
 			name: "Recommendations",
 			programs: shuffle(
-				recommendations.map((program) => formatProgram(program))
-			)
+				recommendations.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Trending Movies 24 HRs",
+			programs: shuffle(
+				trendingMovies.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Trending Shows 24 HRs",
+			programs: shuffle(
+				trendingShows.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Watchlist",
+			programs: shuffle(
+				watchlist.map((program: TraktProgram) => formatProgram(program))
+			) as (Program | Episode | Show)[]
 		}
-	]);
+	]) as Channels;
 
 	return <EPGClient channels={channels} />;
 };
