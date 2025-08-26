@@ -2,14 +2,7 @@ import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import traktRequest from "../lib/trakt";
-import {
-	Channel,
-	Channels,
-	Episode,
-	Program,
-	Show,
-	TraktProgram
-} from "../lib/types";
+import { Channel, Episode, Program, Show, TraktProgram } from "../lib/types";
 import EPGClient from "./EPGClient";
 
 const EPG = async () => {
@@ -76,7 +69,7 @@ const EPG = async () => {
 		}
 	};
 
-	const shuffle = (h: Channels | (Episode | Program | Show)[]) => {
+	const shuffle = (h: (Channel | Episode | Program | Show)[]) => {
 		const p = [...h];
 
 		for (let i = p.length - 1; i > 0; i--) {
@@ -86,11 +79,11 @@ const EPG = async () => {
 		}
 
 		return (h[0] as Channel).name
-			? (p as Channels)
+			? (p as Channel[])
 			: (p as (Episode | Program | Show)[]);
 	};
 
-	const channels: Channels = shuffle([
+	const channels: Channel[] = shuffle([
 		{
 			name: "Weekend Box Office",
 			programs: shuffle(
@@ -151,7 +144,7 @@ const EPG = async () => {
 				watchlist.map((program: TraktProgram) => formatProgram(program))
 			) as (Program | Episode | Show)[]
 		}
-	]) as Channels;
+	]) as Channel[];
 
 	return <EPGClient channels={channels} />;
 };
