@@ -71,7 +71,7 @@ export const EPGProvider: React.FC<{
 
 	const checkRDAvailability = useCallback(
 		async (magnets: string[]) => {
-			const {tokens} = getRDTokens();
+			const tokens = getRDTokens();
 
 			if (!tokens?.access_token) {
 				return {};
@@ -109,7 +109,7 @@ export const EPGProvider: React.FC<{
 
 	const getUnrestrictedLink = useCallback(
 		async (magnet: string) => {
-			const {tokens} = getRDTokens();
+			const tokens = getRDTokens();
 
 			if (!tokens?.access_token) {
 				return null;
@@ -336,8 +336,8 @@ export const EPGProvider: React.FC<{
 	);
 
 	const fetchProgramLink = useCallback(
-		async (program: Episode | Program | Show) => {
-			await ensureProgramMeta(program);
+		async (index: number, program: Episode | Program | Show) => {
+			await ensureProgramMeta(index, program);
 
 			const meta = getProgramMeta(program);
 
@@ -347,7 +347,7 @@ export const EPGProvider: React.FC<{
 
 			let searchQuery = "";
 
-			switch (program.kind) {
+			switch (program?.kind) {
 				case "episode":
 					const episode = program as Episode;
 
@@ -501,9 +501,7 @@ export const EPGProvider: React.FC<{
 				return null;
 			}
 		},
-		[
-			checkRDAvailability, extractHashFromMagnet, getUnrestrictedLink
-		]
+		[checkRDAvailability, extractHashFromMagnet, getUnrestrictedLink]
 	);
 
 	const fetchEpisodeMeta = useCallback(
@@ -562,7 +560,9 @@ export const EPGProvider: React.FC<{
 					return null;
 				}
 
-				fetchProgramLink(program).catch(console.error);
+				if (index === 0) {
+					fetchProgramLink(program).catch(console.error);
+				}
 
 				return meta;
 			} catch (error) {
@@ -632,7 +632,9 @@ export const EPGProvider: React.FC<{
 				return mc;
 			});
 
-			fetchProgramLink(program).catch(console.error);
+			if (index === 0) {
+				fetchProgramLink(program).catch(console.error);
+			}
 
 			return meta;
 		},
@@ -640,13 +642,15 @@ export const EPGProvider: React.FC<{
 	);
 
 	const ensureProgramMeta = useCallback(
-		async (program: Episode | Program | Show) => {
-			switch (program.kind) {
+		async (index: number, program: Episode | Program | Show) => {
+			switch (program?.kind) {
 				case "episode":
 					const episode = program as Episode;
 
 					if (!episodeMetaCache.has(episode.episodeTMDB!)) {
-						await fetchEpisodeMeta(0, episode).catch(console.error);
+						await fetchEpisodeMeta(index, episode).catch(
+							console.error
+						);
 					}
 
 					break;
@@ -660,12 +664,14 @@ export const EPGProvider: React.FC<{
 						break;
 					}
 
-					await fetchEpisodeMeta(0, show).catch(console.error);
+					await fetchEpisodeMeta(index, show).catch(console.error);
 
 					break;
 				case "movie":
 					if (!movieMetaCache.has(program.tmdb)) {
-						await fetchMovieMeta(0, program).catch(console.error);
+						await fetchMovieMeta(index, program).catch(
+							console.error
+						);
 					}
 
 					break;
@@ -678,7 +684,7 @@ export const EPGProvider: React.FC<{
 		(
 			program: Episode | Program | Show
 		): EpisodeMeta | ProgramMeta | null => {
-			switch (program.kind) {
+			switch (program?.kind) {
 				case "episode":
 					return (
 						episodeMetaCache?.get(

@@ -15,20 +15,20 @@ const EPG = async () => {
 
 	const [
 		trendingMovies,
-		// popularMovies,
-		// boxOffice,
-		// mostPlayedMovies,
-		// trendingShows,
-		// recentlyWatched,
-		// recommendations
+		popularMovies,
+		boxOffice,
+		mostPlayedMovies,
+		trendingShows,
+		recentlyWatched,
+		recommendations
 	] = await Promise.all([
 		traktRequest("/movies/trending", { next: { revalidate: 300 } }),
-		// traktRequest("/movies/popular", { next: { revalidate: 300 } }),
-		// traktRequest("/movies/boxoffice", { next: { revalidate: 300 } }),
-		// traktRequest("/movies/played/weekly", { next: { revalidate: 300 } }),
-		// traktRequest("/shows/trending", { next: { revalidate: 300 } }),
-		// traktRequest("/users/me/history/", { cache: "no-store" }),
-		// traktRequest("/recommendations/", { cache: "no-store" })
+		traktRequest("/movies/popular", { next: { revalidate: 300 } }),
+		traktRequest("/movies/boxoffice", { next: { revalidate: 300 } }),
+		traktRequest("/movies/played/weekly", { next: { revalidate: 300 } }),
+		traktRequest("/shows/trending", { next: { revalidate: 300 } }),
+		traktRequest("/users/me/history/", { cache: "no-store" }),
+		traktRequest("/recommendations/", { cache: "no-store" })
 	]);
 
 	const formatProgram = (program): Episode | Program | Show => {
@@ -76,52 +76,54 @@ const EPG = async () => {
 			[p[i], p[j]] = [p[j], p[i]];
 		}
 
-		return (h[0] as Channel).name ? (p as Channels) : (p as (Episode | Program | Show)[]);
+		return (h[0] as Channel).name
+			? (p as Channels)
+			: (p as (Episode | Program | Show)[]);
 	};
 
 	const channels: Channels = shuffle([
-		// {
-		// 	name: "Weekend Box Office",
-		// 	programs: shuffle(
-		// 		boxOffice.map((program) => formatProgram(program))
-		// 	)
-		// },
-		// {
-		// 	name: "Week's Most Played Movies",
-		// 	programs: shuffle(
-		// 		mostPlayedMovies.map((program) => formatProgram(program))
-		// 	)
-		// },
-		// {
-		// 	name: "Most Popular Movies",
-		// 	programs: shuffle(
-		// 		popularMovies.map((program) => formatProgram(program))
-		// 	)
-		// },
+		{
+			name: "Weekend Box Office",
+			programs: shuffle(
+				boxOffice.map((program) => formatProgram(program))
+			)
+		},
+		{
+			name: "Week's Most Played Movies",
+			programs: shuffle(
+				mostPlayedMovies.map((program) => formatProgram(program))
+			)
+		},
+		{
+			name: "Most Popular Movies",
+			programs: shuffle(
+				popularMovies.map((program) => formatProgram(program))
+			)
+		},
 		{
 			name: "Trending Movies 24 HRs",
 			programs: shuffle(
 				trendingMovies.map((program) => formatProgram(program))
 			)
 		},
-		// {
-		// 	name: "Trending Shows 24 HRs",
-		// 	programs: shuffle(
-		// 		trendingShows.map((program) => formatProgram(program))
-		// 	)
-		// },
-		// {
-		// 	name: "Recently Watched",
-		// 	programs: shuffle(
-		// 		recentlyWatched.map((program) => formatProgram(program))
-		// 	)
-		// },
-		// {
-		// 	name: "Recommendations",
-		// 	programs: shuffle(
-		// 		recommendations.map((program) => formatProgram(program))
-		// 	)
-		// }
+		{
+			name: "Trending Shows 24 HRs",
+			programs: shuffle(
+				trendingShows.map((program) => formatProgram(program))
+			)
+		},
+		{
+			name: "Recently Watched",
+			programs: shuffle(
+				recentlyWatched.map((program) => formatProgram(program))
+			)
+		},
+		{
+			name: "Recommendations",
+			programs: shuffle(
+				recommendations.map((program) => formatProgram(program))
+			)
+		}
 	]);
 
 	return <EPGClient channels={channels} />;

@@ -91,18 +91,24 @@ const ChannelGuide = () => {
 	useEffect(() => {
 		const fetchMeta = async () => {
 			const channelsToProcess = [
-				channels[currentChannelIndex - 1 < 0 ? channels.length - 1 : currentChannelIndex - 1],
+				channels[
+					currentChannelIndex - 1 < 0
+						? channels.length - 1
+						: currentChannelIndex - 1
+				],
 				channels[currentChannelIndex],
 				channels[(currentChannelIndex + 1) % channels.length]
 			];
-	
+
 			for (const channel of channelsToProcess) {
-				for (const program of channel.programs) {
-					await ensureProgramMeta(program);
+				const { programs } = channel;
+				
+				for (let i = 0; i < programs.length; i++) {
+					await ensureProgramMeta(i, programs[i]);
 				}
 			}
 		};
-	
+
 		fetchMeta();
 	}, [channels, currentChannelIndex, ensureProgramMeta]);
 

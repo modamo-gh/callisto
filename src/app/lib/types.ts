@@ -31,7 +31,10 @@ export type EPGContextType = {
 	currentRDLink: string | null;
 	episodeMetaCache: Map<number, EpisodeMeta>;
 	episodeTMDBCache: Map<number, any>;
-	ensureProgramMeta: (program: Episode | Program | Show) => Promise<void>;
+	ensureProgramMeta: (
+		index: number,
+		program: Episode | Program | Show
+	) => Promise<void>;
 	fetchEpisodeMeta: (
 		index: number,
 		program: Episode | Show
