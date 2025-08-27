@@ -28,19 +28,14 @@ export type EPGContextType = {
 	currentChannelIndex: number;
 	episodeMetaCache: Map<number, EpisodeMeta>;
 	episodeTMDBCache: Map<number, any>;
-	ensureProgramMeta: (
-		index: number,
-		program: Episode | Program | Show
-	) => Promise<void>;
+	ensureProgramMeta: (program: Episode | Program | Show) => Promise<void>;
 	fetchEpisodeMeta: (
 		program: Episode | Show
 	) => Promise<EpisodeMeta | null | undefined>;
 	fetchEpisodeTMDB: (show: Show) => Promise<any>;
 	fetchMovieMeta: (program: Program) => Promise<ProgramMeta | undefined>;
 	fetchMovieTMDB: (program: Program) => Promise<any>;
-	fetchProgramLink: (
-		program: Episode | Program | Show
-	) => Promise<string | null>;
+	fetchProgramLink: (program: Episode | Program | Show) => Promise<void>;
 	getProgramMeta: (
 		program: Episode | Program | Show
 	) => EpisodeMeta | ProgramMeta | null;
