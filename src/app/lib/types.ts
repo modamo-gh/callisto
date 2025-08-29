@@ -35,7 +35,9 @@ export type EPGContextType = {
 	fetchEpisodeTMDB: (show: Show) => Promise<any>;
 	fetchMovieMeta: (program: Program) => Promise<ProgramMeta | undefined>;
 	fetchMovieTMDB: (program: Program) => Promise<any>;
-	fetchProgramLink: (program: Episode | Program | Show) => Promise<void>;
+	fetchProgramLink: (
+		program: Episode | Program | Show
+	) => Promise<string | null>;
 	getProgramMeta: (
 		program: Episode | Program | Show
 	) => EpisodeMeta | ProgramMeta | null;

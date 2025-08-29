@@ -436,36 +436,6 @@ export const EPGProvider: React.FC<{
 		return auth ? JSON.parse(auth) : null;
 	}, []);
 
-	const getUnrestrictedLink = useCallback(
-		async (magnet: string) => {
-			const auth = getRDTokens();
-
-			if (!auth.tokens?.access_token) {
-				return null;
-			}
-
-			try {
-				const response = await fetch("/api/rd/unrestrict", {
-					body: JSON.stringify({
-						access_token: auth.tokens.access_token,
-						link: magnet
-					}),
-					headers: { "Content-Type": "application/json" },
-					method: "POST"
-				});
-
-				if (response.ok) {
-					const data = await response.json();
-
-					return data.download;
-				}
-			} catch (error) {
-				console.error("Error getting unrestricted link:", error);
-			}
-		},
-		[getRDTokens]
-	);
-
 	const fetchMovieMeta = useCallback(
 		async (program: Program) => {
 			let tmdbData;
@@ -539,61 +509,129 @@ export const EPGProvider: React.FC<{
 			await ensureProgramMeta(program);
 
 			const meta = getProgramMeta(program);
+			if (meta?.link) return meta.link;
 
-			if (!meta || meta.link) {
-				return meta?.link || null;
-			}
-
+			// Build search query
 			const query =
 				program.kind === "movie"
-					? `${program.title} ${meta.releaseDate.split("-")[0]}`
+					? `${program.title} ${
+							meta?.releaseDate?.split("-")[0] ?? ""
+					  }`.trim()
 					: `${program.title} S${String(
 							(meta as EpisodeMeta).season
 					  ).padStart(2, "0")}E${String(
 							(meta as EpisodeMeta).episodeNumber
 					  ).padStart(2, "0")}`;
 
-			if (!query) {
-				return null;
-			}
+			if (!query) return null;
 
+			// 1) Search Prowlarr
 			const params = new URLSearchParams({ q: query });
-			const response = await fetch(`/api/prowlarr?${params.toString()}`);
+			const r = await fetch(`/api/prowlarr?${params.toString()}`);
+			if (!r.ok) return null;
 
-			if (!response.ok) {
-				return null;
-			}
-
-			const results = await response.json();
-
-			const hashes = Array.from(
+			const results = await r.json();
+			const hashes: string[] = Array.from(
 				new Set(
 					results
-						.filter((result) => result.infoHash)
-						.sort((a, b) => b.seeders - a.seeders)
-						.map((result) => String(result.infoHash).trim())
+						.filter((x: any) => x.infoHash)
+						.sort((a: any, b: any) => b.seeders - a.seeders)
+						.map((x: any) => String(x.infoHash).trim())
 				)
 			);
+			if (!hashes.length) return null;
 
-			if (!hashes.length) {
+			// 2) Check StremThru cache
+			const st = await fetch("/api/stremthru", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ hashes })
+			});
+			if (!st.ok) return null;
+
+			const stData = await st.json();
+			const items = (stData?.data?.items ?? []).filter(
+				(i: any) => i.status === "cached"
+			);
+
+			if (!items.length) return null;
+
+			// Choose the best cached item (largest video file)
+			const videoRe = /\.(mkv|mp4|m4v|mov|avi)$/i;
+			const pick = items
+				.map((item: any) => {
+					const best = (item.files ?? [])
+						.filter(
+							(f: any) =>
+								videoRe.test(f.name) &&
+								f.size > 100 * 1024 * 1024
+						)
+						.sort((a: any, b: any) => b.size - a.size)[0];
+					return { item, size: best?.size ?? 0 };
+				})
+				.sort((a: any, b: any) => b.size - a.size)[0]?.item;
+
+			if (!pick?.magnet) return null;
+
+			// 3) Convert magnet -> RD direct link
+			const auth = getRDTokens();
+			const access_token = auth?.tokens?.access_token;
+			if (!access_token) return null;
+
+			const rdRes = await fetch("/api/rd/magnetToLink", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					access_token,
+					magnet: pick.magnet,
+					select: "largest" // server route chooses largest video
+				})
+			});
+
+			if (!rdRes.ok) {
+				console.warn("magnetToLink failed:", await rdRes.text());
 				return null;
 			}
 
-			const stremthruResponse = await fetch("/api/stremthru", {
-				body: JSON.stringify({ hashes }),
-				headers: { "Content-Type": "application/json" },
-				method: "POST"
-			});
+			const rd = await rdRes.json(); // expect { download, filename, ... }
+			const link: string | null = rd?.download ?? null;
+			if (!link) return null;
 
-			const cachedHashes = (
-				await stremthruResponse.json()
-			).data?.items.filter((item) => item.status === "cached");
+			// 4) Persist link into the appropriate cache and return it
+			if (program.kind === "movie") {
+				setMovieMetaCache((prev) => {
+					const mc = new Map(prev);
+					const old = mc.get(program.tmdb) as ProgramMeta | undefined;
+					mc.set(program.tmdb, {
+						...(old ?? ({} as ProgramMeta)),
+						link
+					});
+					return mc;
+				});
+			} else {
+				const key =
+					program.kind === "episode"
+						? (program as Episode).episodeTMDB
+						: (program as Show).episodeTMDB;
+				if (key) {
+					setEpisodeMetaCache((prev) => {
+						const mc = new Map(prev);
+						const old = mc.get(key) as EpisodeMeta | undefined;
+						mc.set(key, { ...(old ?? ({} as EpisodeMeta)), link });
+						return mc;
+					});
+				}
+			}
 
-			console.log(cachedHashes);
-
-			return null;
+			return link;
 		},
-		[ensureProgramMeta, getProgramMeta]
+		[
+			ensureProgramMeta,
+			getProgramMeta,
+			getRDTokens,
+			setEpisodeMetaCache,
+			setMovieMetaCache
+		]
 	);
 
 	const value: EPGContextType = {
