@@ -83,6 +83,22 @@ const EPG = async () => {
 			: (p as (Episode | Program | Show)[]);
 	};
 
+	const lists = await traktRequest("/users/me/lists");
+	const listChannels = await Promise.all(
+		lists.map(async (list) => ({
+			name: list.name,
+			programs: shuffle(
+				(
+					await traktRequest(
+						`/users/me/lists/${list.ids.trakt}/items`
+					)
+				).map((program: TraktProgram) => formatProgram(program))
+			) as (Program | Episode | Show)[]
+		}))
+	);
+
+	console.log(listChannels);
+
 	const channels: Channel[] = shuffle([
 		{
 			name: "Weekend Box Office",
@@ -143,7 +159,8 @@ const EPG = async () => {
 			programs: shuffle(
 				watchlist.map((program: TraktProgram) => formatProgram(program))
 			) as (Program | Episode | Show)[]
-		}
+		},
+		...listChannels
 	]) as Channel[];
 
 	return <EPGClient channels={channels} />;

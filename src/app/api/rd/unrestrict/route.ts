@@ -28,12 +28,26 @@ export async function POST(request: NextRequest) {
 		);
 
 		if (!response.ok) {
+			const errorText = await response
+				.text()
+				.catch(() => "Unknown error");
+			console.error("RD unrestrict error details:", {
+				status: response.status,
+				statusText: response.statusText,
+				body: errorText,
+				link: link
+			});
+
 			return NextResponse.json(
-				{ error: "RD API error" },
+				{
+					error: "RD API error",
+					status: response.status,
+					details: errorText,
+					link: link
+				},
 				{ status: response.status }
 			);
 		}
-
 		const data = await response.json();
 
 		return NextResponse.json(data);

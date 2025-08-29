@@ -23,8 +23,19 @@ export async function POST(request: NextRequest) {
 		);
 
 		if (!response.ok) {
+			const errorText = await response.text().catch(() => "Unknown error");
+			console.error("RD API Error Details:", {
+				status: response.status,
+				statusText: response.statusText,
+				body: errorText
+			});
+			
 			return NextResponse.json(
-				{ error: "RD API error" },
+				{ 
+					error: "RD API error", 
+					status: response.status,
+					details: errorText 
+				},
 				{ status: response.status }
 			);
 		}

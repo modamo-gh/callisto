@@ -127,15 +127,6 @@ export const EPGProvider: React.FC<{
 		preloadVisibleChannels();
 	}, [currentChannelIndex]);
 
-	const extractHashFromMagnet = useCallback(
-		(magnet: string): string | null => {
-			const match = magnet.match(/btih:([a-f0-9]{40})/i);
-
-			return match ? match[1].toLowerCase() : null;
-		},
-		[]
-	);
-
 	const fetchShowTMDB = useCallback(
 		async (show: Show) => {
 			try {
@@ -442,21 +433,21 @@ export const EPGProvider: React.FC<{
 
 		const auth = localStorage.getItem("rd_auth");
 
-		return auth ? JSON.parse(auth).tokens : null;
+		return auth ? JSON.parse(auth) : null;
 	}, []);
 
 	const getUnrestrictedLink = useCallback(
 		async (magnet: string) => {
-			const tokens = getRDTokens();
+			const auth = getRDTokens();
 
-			if (!tokens?.access_token) {
+			if (!auth.tokens?.access_token) {
 				return null;
 			}
 
 			try {
 				const response = await fetch("/api/rd/unrestrict", {
 					body: JSON.stringify({
-						access_token: tokens.access_token,
+						access_token: auth.tokens.access_token,
 						link: magnet
 					}),
 					headers: { "Content-Type": "application/json" },
@@ -473,44 +464,6 @@ export const EPGProvider: React.FC<{
 			}
 		},
 		[getRDTokens]
-	);
-
-	const checkRDAvailability = useCallback(
-		async (magnets: string[]) => {
-			const tokens = getRDTokens();
-
-			if (!tokens?.access_token) {
-				return {};
-			}
-
-			const hashes = magnets
-				.map(extractHashFromMagnet)
-				.filter(Boolean) as string[];
-
-			if (!hashes.length) {
-				return {};
-			}
-
-			try {
-				const response = await fetch("/api/rd/instant-availability", {
-					body: JSON.stringify({
-						access_token: tokens.access_token,
-						hashes
-					}),
-					headers: { "Content-Type": "application/json" },
-					method: "POST"
-				});
-
-				if (response.ok) {
-					return await response.json();
-				}
-			} catch (error) {
-				console.error("Error checking RD availability:", error);
-			}
-
-			return {};
-		},
-		[extractHashFromMagnet, getRDTokens]
 	);
 
 	const fetchMovieMeta = useCallback(
@@ -606,51 +559,39 @@ export const EPGProvider: React.FC<{
 
 			const params = new URLSearchParams({ q: query });
 			const response = await fetch(`/api/prowlarr?${params.toString()}`);
-			const data = await response.json();
 
-			console.log(data);
+			if (!response.ok) {
+				return null;
+			}
 
-			// const p = (async () => {
-			// 	const params = new URLSearchParams({ q: query });
-			// 	const resp = await fetch(`/api/snowfl?${params}`, {
-			// 		cache: "no-store"
-			// 	});
-			// 	if (!resp.ok) {
-			// 		// if 503, back off locally a bit before letting another attempt happen
-			// 		if (resp.status === 503)
-			// 			await new Promise((r) => setTimeout(r, 800));
-			// 		return null;
-			// 	}
-			// 	const data = await resp.json();
-			// 	const link = data?.data?.[0]?.magnet ?? null;
+			const results = await response.json();
 
-			// 	if (link) {
-			// 		if (program.kind === "movie") {
-			// 			setMovieMetaCache((prev) => {
-			// 				const mc = new Map(prev);
-			// 				const curr = mc.get(program.tmdb);
-			// 				if (curr) mc.set(program.tmdb, { ...curr, link });
-			// 				return mc;
-			// 			});
-			// 		} else {
-			// 			const key = (
-			// 				program.kind === "episode"
-			// 					? program.episodeTMDB
-			// 					: (program as Show).episodeTMDB
-			// 			)!;
-			// 			setEpisodeMetaCache((prev) => {
-			// 				const mc = new Map(prev);
-			// 				const curr = mc.get(key);
-			// 				if (curr) mc.set(key, { ...curr, link });
-			// 				return mc;
-			// 			});
-			// 		}
-			// 	}
-			// 	return link;
-			// })().finally(() => inflight.delete(query));
+			const hashes = Array.from(
+				new Set(
+					results
+						.filter((result) => result.infoHash)
+						.sort((a, b) => b.seeders - a.seeders)
+						.map((result) => String(result.infoHash).trim())
+				)
+			);
 
-			// inflight.set(query, p);
-			// return p;
+			if (!hashes.length) {
+				return null;
+			}
+
+			const stremthruResponse = await fetch("/api/stremthru", {
+				body: JSON.stringify({ hashes }),
+				headers: { "Content-Type": "application/json" },
+				method: "POST"
+			});
+
+			const cachedHashes = (
+				await stremthruResponse.json()
+			).data?.items.filter((item) => item.status === "cached");
+
+			console.log(cachedHashes);
+
+			return null;
 		},
 		[ensureProgramMeta, getProgramMeta]
 	);
