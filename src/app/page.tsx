@@ -190,7 +190,7 @@ const Home = () => {
 			<h1
 				className={`${orbitron.className} text-center text-cyan-500 text-9xl tracking-widest`}
 			>
-				neocable
+				callisto
 			</h1>
 			<h2
 				className={`${orbitron.className} text-center text-cyan-500 text-4xl tracking-wide`}

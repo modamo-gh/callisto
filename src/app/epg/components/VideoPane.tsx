@@ -60,14 +60,12 @@ const VideoPane = () => {
 		(async () => {
 			if (!program) return;
 
-			// try cached link
 			const cached = getProgramMeta(program)?.link ?? null;
 			if (cached) {
 				setSrc(cached);
 				return;
 			}
 
-			// fetch link (prowlarr -> stremthru -> RD)
 			const link = await fetchProgramLink(program).catch(() => null);
 			if (!cancelled) setSrc(link ?? null);
 		})();
@@ -80,7 +78,7 @@ const VideoPane = () => {
 	const type = guessMime(src);
 
 	return (
-		<div className="bg-slate-700 flex-1 rounded p-2">
+		<div className="bg-slate-700 flex flex-1 items-center justify-center rounded p-2">
 			{src ? (
 				<video
 					autoPlay
@@ -89,7 +87,7 @@ const VideoPane = () => {
 					ref={videoRef}
 					src={src}
 					playsInline // iOS/Safari inline playback
-					preload="metadata"
+					preload="auto"
 					onError={(e) => console.warn("Video failed to load", e)}
 				>
 					{type && (

@@ -127,39 +127,41 @@ const EPG = async () => {
 					formatProgram(program)
 				)
 			) as (Program | Episode | Show)[]
-		}
-		// {
-		// 	name: "Recommendations",
-		// 	programs: shuffle(
-		// 		recommendations.map((program: TraktProgram) =>
-		// 			formatProgram(program)
-		// 		)
-		// 	) as (Program | Episode | Show)[]
-		// },
-		// {
-		// 	name: "Trending Movies 24 HRs",
-		// 	programs: shuffle(
-		// 		trendingMovies.map((program: TraktProgram) =>
-		// 			formatProgram(program)
-		// 		)
-		// 	) as (Program | Episode | Show)[]
-		// },
-		// {
-		// 	name: "Trending Shows 24 HRs",
-		// 	programs: shuffle(
-		// 		trendingShows.map((program: TraktProgram) =>
-		// 			formatProgram(program)
-		// 		)
-		// 	) as (Program | Episode | Show)[]
-		// },
-		// {
-		// 	name: "Watchlist",
-		// 	programs: shuffle(
-		// 		watchlist.map((program: TraktProgram) => formatProgram(program))
-		// 	) as (Program | Episode | Show)[]
-		// },
-		// ...listChannels
+		},
+		{
+			name: "Recommendations",
+			programs: shuffle(
+				recommendations.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Trending Movies 24 HRs",
+			programs: shuffle(
+				trendingMovies.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Trending Shows 24 HRs",
+			programs: shuffle(
+				trendingShows.map((program: TraktProgram) =>
+					formatProgram(program)
+				)
+			) as (Program | Episode | Show)[]
+		},
+		{
+			name: "Watchlist",
+			programs: shuffle(
+				watchlist.map((program: TraktProgram) => formatProgram(program))
+			) as (Program | Episode | Show)[]
+		},
+		...listChannels
 	]) as Channel[];
+
+	console.log(channels)
 
 	return <EPGClient channels={channels} />;
 };

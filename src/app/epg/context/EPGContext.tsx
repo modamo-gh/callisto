@@ -40,93 +40,6 @@ export const EPGProvider: React.FC<{
 		new Map()
 	);
 
-	useEffect(() => {
-		const preloadVisibleChannels = async () => {
-			const viewableChannels = [
-				channels[
-					currentChannelIndex - 1 < 0
-						? channels.length - 1
-						: currentChannelIndex - 1
-				],
-				channels[currentChannelIndex],
-				channels[(currentChannelIndex + 1) % channels.length]
-			];
-
-			for (const channel of viewableChannels) {
-				for (let i = 0; i < channel.programs.length; i++) {
-					const program = channel.programs[i];
-
-					switch (program.kind) {
-						case "movie":
-							if (!movieMetaCache.has(program.tmdb)) {
-								fetchMovieMeta(program);
-							}
-
-							break;
-						case "episode":
-							const episode = program as Episode;
-
-							if (!episodeMetaCache.has(episode.episodeTMDB)) {
-								fetchEpisodeMeta(episode);
-							}
-
-							break;
-						case "tv":
-							const show = program as Show;
-
-							if (!showTMDBCache.has(program.tmdb)) {
-								fetchShowTMDB(show)
-									.then(() => {
-										if (!show.episodeTMDB) {
-											fetchEpisodeTMDB(show)
-												.then((episodeTMDB) => {
-													if (episodeTMDB) {
-														show.episodeTMDB =
-															episodeTMDB.id;
-													}
-												})
-												.catch((error) =>
-													console.error(
-														"Error fetching episode TMDB:",
-														error
-													)
-												);
-										}
-									})
-									.catch((error) =>
-										console.error(
-											"Error fetching show meta:",
-											error
-										)
-									);
-							} else if (!show.episodeTMDB) {
-								fetchEpisodeTMDB(show)
-									.then((episodeTMDB) => {
-										if (episodeTMDB) {
-											show.episodeTMDB = episodeTMDB.id;
-										}
-									})
-									.catch((error) =>
-										console.error(
-											"Error fetching episode TMDB:",
-											error
-										)
-									);
-							}
-
-							break;
-					}
-
-					if (i === 0) {
-						fetchProgramLink(program);
-					}
-				}
-			}
-		};
-
-		preloadVisibleChannels();
-	}, [currentChannelIndex]);
-
 	const fetchShowTMDB = useCallback(
 		async (show: Show) => {
 			try {
@@ -326,6 +239,8 @@ export const EPGProvider: React.FC<{
 					season: tmdbData.season_number
 				};
 
+				console.log(meta);
+
 				if (program.episodeTMDB) {
 					setEpisodeMetaCache((prev) => {
 						const mc = new Map(prev);
@@ -509,9 +424,15 @@ export const EPGProvider: React.FC<{
 			await ensureProgramMeta(program);
 
 			const meta = getProgramMeta(program);
-			if (meta?.link) return meta.link;
 
-			// Build search query
+			if (!meta) {
+				return null;
+			}
+
+			if (meta?.link) {
+				return meta.link;
+			}
+
 			const query =
 				program.kind === "movie"
 					? `${program.title} ${
@@ -633,6 +554,93 @@ export const EPGProvider: React.FC<{
 			setMovieMetaCache
 		]
 	);
+
+	useEffect(() => {
+		const preloadVisibleChannels = async () => {
+			const viewableChannels = [
+				channels[
+					currentChannelIndex - 1 < 0
+						? channels.length - 1
+						: currentChannelIndex - 1
+				],
+				channels[currentChannelIndex],
+				channels[(currentChannelIndex + 1) % channels.length]
+			];
+
+			for (const channel of viewableChannels) {
+				for (let i = 0; i < Math.min(channel.programs.length, 4); i++) {
+					const program = channel.programs[i];
+
+					switch (program.kind) {
+						case "movie":
+							if (!movieMetaCache.has(program.tmdb)) {
+								fetchMovieMeta(program);
+							}
+
+							break;
+						case "episode":
+							const episode = program as Episode;
+
+							if (!episodeMetaCache.has(episode.episodeTMDB)) {
+								fetchEpisodeMeta(episode);
+							}
+
+							break;
+						case "tv":
+							const show = program as Show;
+
+							if (!showTMDBCache.has(program.tmdb)) {
+								fetchShowTMDB(show)
+									.then(() => {
+										if (!show.episodeTMDB) {
+											fetchEpisodeTMDB(show)
+												.then((episodeTMDB) => {
+													if (episodeTMDB) {
+														show.episodeTMDB =
+															episodeTMDB.id;
+													}
+												})
+												.catch((error) =>
+													console.error(
+														"Error fetching episode TMDB:",
+														error
+													)
+												);
+										}
+									})
+									.catch((error) =>
+										console.error(
+											"Error fetching show meta:",
+											error
+										)
+									);
+							} else if (!show.episodeTMDB) {
+								fetchEpisodeTMDB(show)
+									.then((episodeTMDB) => {
+										if (episodeTMDB) {
+											show.episodeTMDB = episodeTMDB.id;
+										}
+									})
+									.catch((error) =>
+										console.error(
+											"Error fetching episode TMDB:",
+											error
+										)
+									);
+							}
+
+							break;
+					}
+
+					if (i === 0) {
+						fetchProgramLink(program);
+					}
+				}
+			}
+		};
+
+		preloadVisibleChannels();
+	}, [currentChannelIndex]);
 
 	const value: EPGContextType = {
 		channels,
