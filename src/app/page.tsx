@@ -183,10 +183,7 @@ const Home = () => {
 	};
 
 	return (
-		<div className="bg-slate-800 flex flex-col gap-6 h-screen items-center justify-center relative w-screen">
-			<div className="absolute inset-0 pointer-events-none">
-				<div className="scan-line absolute w-full h-1 bg-cyan-400/30 blur-sm"></div>
-			</div>
+		<div className="bg-slate-800 flex flex-col gap-6 h-screen items-center justify-center w-screen">
 			<h1
 				className={`${orbitron.className} text-center text-cyan-500 text-9xl tracking-widest`}
 			>
