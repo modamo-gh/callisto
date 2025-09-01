@@ -4,6 +4,7 @@ import { Orbitron } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Credentials, DeviceCode, Tokens } from "./lib/types";
+import Image from "next/image";
 
 const orbitron = Orbitron({
 	subsets: ["latin"],
@@ -183,51 +184,58 @@ const Home = () => {
 	};
 
 	return (
-		<div className="bg-slate-800 flex flex-col gap-6 h-screen items-center justify-center w-screen">
-			<h1
-				className={`${orbitron.className} text-center text-cyan-500 text-9xl tracking-widest`}
+		<div className="flex flex-col h-screen relative w-screen">
+			<div
+				className="absolute bg-cover inset-0"
+				style={{ backgroundImage: "url('/nebula.jpg')" }}
+			/>
+			<div className="absolute bg-[linear-gradient(to_right,black_0%,black_30%,transparent_100%)] inset-0" />
+			<div
+				className={`absolute grid grid-cols-2 grid-rows-10 inset-0 ${orbitron.className} z-10`}
 			>
-				callisto
-			</h1>
-			<h2
-				className={`${orbitron.className} text-center text-cyan-500 text-4xl tracking-wide`}
-			>
-				Combining the comfort of cable with the convenience of streaming
-			</h2>
-			<div className="flex flex-col items-center gap-4">
-				<div className="flex gap-2 items-center">
-					<button
-						className={`${
-							orbitron.className
-						} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
-							traktAuthed
-								? "bg-slate-700"
-								: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
-						}`}
-						disabled={traktAuthed}
-						onClick={handleTraktAuth}
-					>
-						Authorize Trakt
-					</button>
-					<p className="text-4xl">{!traktAuthed ? "⌛" : "✅"}</p>
-				</div>
-				<div className="flex gap-2 items-center">
-					<button
-						className={`${
-							orbitron.className
-						} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
-							rdTokens?.access_token
-								? "bg-slate-700"
-								: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
-						}`}
-						disabled={!!rdTokens?.access_token}
-						onClick={handleRDAuth}
-					>
-						Authorize Real Debrid
-					</button>
-					<p className="text-4xl">
-						{!rdTokens?.access_token ? "⌛" : "✅"}
-					</p>
+				<header className="flex col-span-2 items-center justify-start p-8 row-span-1">
+					<h1 className="font-semibold text-center text-cyan-500 text-2xl tracking-widest">
+						callisto
+					</h1>
+				</header>
+				<main className="col-span-1 flex flex-col gap-4 items-center row-span-8">
+					<div className="flex flex-col flex-4 gap-8 items-center justify-center text-cyan-500 text-4xl">
+						<h2>Just like cable</h2>
+						<h2>Just for you</h2>
+					</div>
+					<div className="flex flex-col flex-1 items-center justify-around w-full">
+						<button
+							className={`${
+								orbitron.className
+							} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
+								traktAuthed
+									? "bg-slate-700"
+									: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
+							} w-4/5`}
+							disabled={traktAuthed}
+							onClick={handleTraktAuth}
+						>
+							Trakt Authorized {!traktAuthed ? "❌" : "✅"}
+						</button>
+						<button
+							className={`${
+								orbitron.className
+							} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
+								rdTokens?.access_token
+									? "bg-slate-700"
+									: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
+							} w-4/5`}
+							disabled={!!rdTokens?.access_token}
+							onClick={handleRDAuth}
+						>
+							Real Debrid Authorized{" "}
+							{!rdTokens?.access_token ? "❌" : "✅"}
+						</button>
+					</div>
+				</main>
+				<aside className="col-span-1 row-span-8" />
+				<div className="flex col-span-2 items-center justify-center row-span-1">
+					<p>Envisioned and Engineered by Modamo Studios</p>
 				</div>
 			</div>
 		</div>
