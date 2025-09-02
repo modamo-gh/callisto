@@ -173,14 +173,24 @@ const Home = () => {
 		}
 	}, []);
 
-	const handleTraktAuth = () => {
-		const clientID = process.env.NEXT_PUBLIC_TRAKT_CLIENT_ID;
-		const redirectURI = encodeURIComponent(
-			process.env.NEXT_PUBLIC_TRAKT_REDIRECT_URI
-		);
-		const traktAuthURL = `https://trakt.tv/oauth/authorize?response_type=code&client_id=${clientID}&redirect_uri=${redirectURI}`;
+	const handleTraktAuth = async () => {
+		try {
+			const response = await fetch("/api/auth/trakt/start", {
+				cache: "no-store"
+			});
 
-		window.location.href = traktAuthURL;
+			if (!response.ok) {
+				console.error(await response.text());
+
+				return;
+			}
+
+			const { url } = await response.json();
+
+			window.location.href = url;
+		} catch (error) {
+			console.error("Failed to start Trakt auth:", error);
+		}
 	};
 
 	return (

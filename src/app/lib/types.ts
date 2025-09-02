@@ -97,9 +97,10 @@ export type TraktProgram = {
 	movie: { title: string; ids: { tmdb: number } };
 };
 
-export type Tokens = {
+export type Token = {
 	access_token: string;
 	expires_in: number;
 	refresh_token?: string;
-	token_type: string;
+	scope?: string;
+	token_type?: string;
 };
