@@ -4,12 +4,19 @@ import { redirect } from "next/navigation";
 import traktRequest from "../lib/trakt";
 import { Channel, Episode, Program, Show, TraktProgram } from "../lib/types";
 import EPGClient from "./EPGClient";
+import sessionStore from "../lib/sessionStore";
+import { NextResponse } from "next/server";
 
 const EPG = async () => {
-	const cookieStore = await cookies();
-	const accessToken = cookieStore.get("trakt_access_token")?.value;
+	const jar = await cookies();
+	const sessionID = jar.get("sessionID")?.value;
+	const session = sessionID ? await sessionStore.get(sessionID) : null;
 
-	if (!accessToken) {
+	if (!sessionID || !session) {
+		return NextResponse.json({ error: "No session" }, { status: 401 });
+	}
+
+	if (!session.trakt?.access_token || !session.realDebrid?.access_token) {
 		redirect("/");
 	}
 
@@ -161,7 +168,7 @@ const EPG = async () => {
 		...listChannels
 	]) as Channel[];
 
-	console.log(channels)
+	console.log(channels);
 
 	return <EPGClient channels={channels} />;
 };

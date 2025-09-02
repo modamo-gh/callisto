@@ -2,9 +2,7 @@
 
 import { Orbitron } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Credentials, DeviceCode, Tokens } from "./lib/types";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 
 const orbitron = Orbitron({
 	subsets: ["latin"],
@@ -12,166 +10,123 @@ const orbitron = Orbitron({
 });
 
 const Home = () => {
-	const approvedRef = useRef(false);
-	const exchangedRef = useRef(false);
-	const pollRef = useRef<number | null>(null);
-
-	const [rdCredentials, setRDCredentials] = useState<Credentials | null>(
-		null
-	);
-	const [rdDevice, setRDDevice] = useState<DeviceCode | null>(null);
 	const [rdError, setRDError] = useState<string | null>(null);
-	const [rdTokens, setRDTokens] = useState<Tokens | null>(null);
 	const [traktAuthed, setTraktAuthed] = useState(false);
-	const [traktError, setTraktError] = useState<string | null>(null);
+	const [realDebridAuthed, setRealDebridAuthed] = useState(false);
+	const [realDebridBusy, setRealDebridBusy] = useState(false);
 
 	const handleRDAuth = async () => {
-		const r = await fetch("/api/auth/rd/start");
+		setRDError(null);
+		setRealDebridBusy(true);
 
-		if (!r.ok) {
-			setRDError(await r.text());
-			return;
+		try {
+			const response = await fetch("/api/auth/rd/start");
+
+			if (!response.ok) {
+				throw new Error(await response.text());
+			}
+
+			const start = (await response.json()) as {
+				device_code: string;
+				verification_url: string;
+				direct_verification_url?: string;
+				interval: number;
+				expires_in: number;
+			};
+
+			window.open(
+				start.direct_verification_url ?? start.verification_url,
+				"_blank"
+			);
+
+			const device_code = start.device_code;
+			const intervalMs = Math.max(1000, (start.interval ?? 5) * 1000);
+			const deadline = Date.now() + (start.expires_in ?? 1800) * 1000;
+
+			const tick = async () => {
+				if (Date.now() > deadline) {
+					throw new Error("Device code expired. Try again.");
+				}
+
+				const credentialsResponse = await fetch(
+					"/api/auth/rd/credentials",
+					{
+						body: JSON.stringify({ device_code }),
+						headers: { "content-type": "application/json" },
+						method: "POST"
+					}
+				);
+
+				if (credentialsResponse.status === 202) {
+					return false;
+				}
+
+				if (!credentialsResponse.ok) {
+					{
+						throw new Error(
+							(await credentialsResponse.text()) ||
+								"Real-Debrid credentials polling failed"
+						);
+					}
+				}
+
+				const tokenResponse = await fetch("/api/auth/rd/token", {
+					body: JSON.stringify({ device_code }),
+					headers: { "content-type": "application/json" },
+					method: "POST"
+				});
+
+				if (!tokenResponse.ok) {
+					throw new Error(await tokenResponse.text());
+				}
+
+				const me = await fetch("/api/me", { cache: "no-store" }).then(
+					(response) => response.json()
+				);
+
+				setRealDebridAuthed(!!me.realDebridAuthed);
+				setTraktAuthed(!!me.traktAuthed);
+
+				return true;
+			};
+
+			let timer: number | undefined;
+
+			const loop = async () => {
+				try {
+					const done = await tick();
+
+					if (!done) {
+						timer = window.setTimeout(loop, intervalMs);
+					} else {
+						setRealDebridBusy(false);
+					}
+				} catch (error: any) {
+					setRDError(error?.message ?? "Authorization failed");
+					setRealDebridBusy(false);
+				}
+			};
+
+			loop();
+
+			return () => {
+				if (timer) {
+					window.clearTimeout(timer);
+				}
+			};
+		} catch (error: any) {
+			setRDError(error?.message ?? "Failed to start Real-Debrid auth");
+			setRealDebridBusy(false);
 		}
-
-		const device = (await r.json()) as DeviceCode;
-
-		setRDDevice(device);
-
-		window.open(
-			device.direct_verification_url ?? device.verification_url,
-			"_blank"
-		);
 	};
 
 	const router = useRouter();
 
 	useEffect(() => {
-		if (traktAuthed && rdTokens?.access_token) {
+		if (traktAuthed && realDebridAuthed) {
 			router.push("/epg");
 		}
-	}, [rdTokens?.access_token, router, traktAuthed]);
-
-	useEffect(() => {
-		if (!rdDevice) {
-			return;
-		}
-
-		const started = Date.now();
-
-		const poll = async () => {
-			const r = await fetch("/api/auth/rd/credentials", {
-				body: JSON.stringify({ device_code: rdDevice.device_code }),
-				headers: {
-					"cache-control": "no-store",
-					"content-type": "application/json"
-				},
-				method: "POST"
-			});
-
-			if (r.ok) {
-				if (approvedRef.current) {
-					return;
-				}
-
-				approvedRef.current = true;
-
-				if (pollRef.current) {
-					clearInterval(pollRef.current);
-					pollRef.current = null;
-				}
-
-				setRDCredentials((await r.json()) as Credentials);
-
-				return;
-			}
-
-			const expired = Date.now() - started > rdDevice.expires_in * 1000;
-
-			if (expired) {
-				if (pollRef.current) {
-					clearInterval(pollRef.current);
-
-					pollRef.current = null;
-				}
-
-				setRDError("Device code expired. Try again.");
-			}
-		};
-
-		poll();
-
-		pollRef.current = window.setInterval(poll, rdDevice.interval * 1000);
-
-		return () => {
-			if (pollRef.current) {
-				clearInterval(pollRef.current);
-
-				pollRef.current = null;
-			}
-		};
-	}, [rdDevice]);
-
-	useEffect(() => {
-		if (exchangedRef.current || !rdCredentials || !rdDevice) {
-			return;
-		}
-
-		exchangedRef.current = true;
-
-		(async () => {
-			const r = await fetch("/api/auth/rd/token", {
-				body: JSON.stringify({
-					client_id: rdCredentials.client_id,
-					client_secret: rdCredentials.client_secret,
-					device_code: rdDevice.device_code
-				}),
-				headers: { "content-type": "application/json" },
-				method: "POST"
-			});
-
-			if (!r.ok) {
-				setRDError(await r.text());
-
-				exchangedRef.current = false;
-
-				return;
-			}
-
-			const tokens = (await r.json()) as Tokens;
-
-			setRDTokens(tokens);
-
-			localStorage.setItem(
-				"rd_auth",
-				JSON.stringify({ credentials: rdCredentials, tokens: tokens })
-			);
-		})();
-	}, [rdCredentials, rdDevice]);
-
-	useEffect(() => {
-		const checkTraktAuth = async () => {
-			try {
-				const response = await fetch("/api/auth/trakt/verify");
-
-				if (response.ok) {
-					setTraktAuthed(true);
-				}
-			} catch (error) {
-				console.error("Failed to verify Trakt auth:", error);
-			}
-		};
-
-		checkTraktAuth();
-
-		const savedRDAuth = localStorage.getItem("rd_auth");
-
-		if (savedRDAuth) {
-			const { credentials, tokens } = JSON.parse(savedRDAuth);
-
-			setRDCredentials(credentials);
-			setRDTokens(tokens);
-		}
-	}, []);
+	}, [realDebridAuthed, router, traktAuthed]);
 
 	const handleTraktAuth = async () => {
 		try {
@@ -192,6 +147,24 @@ const Home = () => {
 			console.error("Failed to start Trakt auth:", error);
 		}
 	};
+
+	useEffect(() => {
+		(async () => {
+			try {
+				const response = await fetch("/api/me", { cache: "no-store" });
+
+				if (response.ok) {
+					const { traktAuthed, realDebridAuthed } =
+						await response.json();
+
+					setTraktAuthed(traktAuthed);
+					setRealDebridAuthed(realDebridAuthed);
+				}
+			} catch (error) {
+				console.error("Failed to fetch /me:", error);
+			}
+		})();
+	}, []);
 
 	return (
 		<div className="flex flex-col h-screen relative w-screen">
@@ -230,16 +203,16 @@ const Home = () => {
 						<button
 							className={`${
 								orbitron.className
-							} font-bold text-slate-100 px-6 py-3 rounded tracking-wide ${
-								rdTokens?.access_token
+							} font-bold px-6 py-3 rounded text-slate-100 tracking-wide ${
+								realDebridAuthed
 									? "bg-slate-700"
 									: "bg-cyan-500 hover:bg-cyan-400 hover:cursor-pointer duration-200 transition-colors"
 							} w-4/5`}
-							disabled={!!rdTokens?.access_token}
+							disabled={realDebridAuthed}
 							onClick={handleRDAuth}
 						>
 							Real Debrid Authorized{" "}
-							{!rdTokens?.access_token ? "❌" : "✅"}
+							{!realDebridAuthed ? "❌" : "✅"}
 						</button>
 					</div>
 				</main>

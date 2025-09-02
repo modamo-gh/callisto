@@ -1,6 +1,16 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { Credentials } from "@/app/lib/types";
+import sessionStore from "@/app/lib/sessionStore";
 
 export async function POST(req: NextRequest) {
+	const jar = await cookies();
+	const sessionID = jar.get("sessionID")?.value;
+
+	if (!sessionID) {
+		return NextResponse.json({ error: "No session" }, { status: 401 });
+	}
+
 	const { device_code } = await req.json();
 
 	if (!device_code) {
@@ -19,17 +29,37 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	const rd = await fetch(
-		`https://api.real-debrid.com/oauth/v2/device/credentials?client_id=${encodeURIComponent(
-			clientID
-		)}&code=${encodeURIComponent(device_code)}`
-	);
+	try {
+		const response = await fetch(
+			`https://api.real-debrid.com/oauth/v2/device/credentials?client_id=${encodeURIComponent(
+				clientID
+			)}&code=${encodeURIComponent(device_code)}`,
+			{ headers: { accept: "application/json" } }
+		);
 
-	if (!rd.ok) {
-		return new NextResponse(await rd.text(), { status: rd.status });
+		if (!response.ok) {
+			return new NextResponse("pending", {
+				headers: { "cache-control": "no-store" },
+				status: 202
+			});
+		}
+
+		const credentials = (await response.json()) as Credentials;
+
+		await sessionStore.set(sessionID, {
+			realDebridCredentials: credentials
+		});
+
+		return NextResponse.json(
+			{ ok: true },
+			{
+				headers: { "cache-control": "no-store" }
+			}
+		);
+	} catch (error) {
+		return new NextResponse("pending", {
+			status: 202,
+			headers: { "cache-control": "no-store" }
+		});
 	}
-
-	return NextResponse.json(await rd.json(), {
-		headers: { "cache-control": "no-store" }
-	});
 }

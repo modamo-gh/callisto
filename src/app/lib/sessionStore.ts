@@ -1,17 +1,5 @@
 import { Redis } from "@upstash/redis";
-
-type ProviderTokens = {
-	access_token: string;
-	refresh_token: string;
-	expires_at: number;
-};
-
-type Session = {
-	trakt?: ProviderTokens;
-	rd?: ProviderTokens;
-	pkce_verifier?: string;
-	updated_at: number;
-};
+import { Session } from "./types";
 
 const redis = Redis.fromEnv();
 

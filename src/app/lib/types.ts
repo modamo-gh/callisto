@@ -82,6 +82,20 @@ export type ProgramMeta = {
 	runtime: number;
 };
 
+export type ProviderTokens = {
+	access_token: string;
+	expires_at: number;
+	refresh_token?: string;
+};
+
+export type Session = {
+	trakt?: ProviderTokens;
+	realDebrid?: ProviderTokens;
+	realDebridCredentials?: Credentials;
+	pkce_verifier?: string;
+	updated_at: number;
+};
+
 export type Show = Program & { episodeTMDB: null | number };
 
 export type TraktProgram = {
